@@ -7,6 +7,7 @@ import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import StatusMessage from '@/components/StatusMessage';
 import Card from '@/components/Card';
+import ImageUpload from '@/components/ImageUpload';
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -15,12 +16,18 @@ export default function CreateEventPage() {
     date: '',
     location: '',
     description: '',
+    price: '',
     poster_url: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setError('');
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError('');
   }
@@ -33,7 +40,10 @@ export default function CreateEventPage() {
     const res = await fetch('/api/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        ...form,
+        price: form.price ? parseInt(form.price) : 0,
+      }),
     });
     const data = await res.json();
     if (res.ok) {
@@ -59,7 +69,7 @@ export default function CreateEventPage() {
               label="Nama Event"
               name="title"
               value={form.title}
-              onChange={handleChange}
+              onChange={handleInputChange}
               placeholder="Contoh: Workshop Web Development"
               required
             />
@@ -68,17 +78,39 @@ export default function CreateEventPage() {
               name="date"
               type="datetime-local"
               value={form.date}
-              onChange={handleChange}
+              onChange={handleInputChange}
               required
             />
             <Input
               label="Lokasi"
               name="location"
               value={form.location}
-              onChange={handleChange}
+              onChange={handleInputChange}
               placeholder="Contoh: Gedung A, Jakarta"
               required
             />
+
+            {/* Price */}
+            <div>
+              <Input
+                label="Harga Tiket (isi 0 jika Gratis)"
+                name="price"
+                type="number"
+                min="0"
+                value={form.price}
+                onChange={handleInputChange}
+                placeholder="0"
+              />
+              {(!form.price || parseInt(form.price) === 0) && (
+                <p className="text-xs text-green-600 mt-1 font-semibold">✅ Event ini Gratis</p>
+              )}
+              {form.price && parseInt(form.price) > 0 && (
+                <p className="text-xs text-orange-600 mt-1 font-semibold">
+                  💰 Harga: Rp {parseInt(form.price).toLocaleString('id-ID')}
+                </p>
+              )}
+            </div>
+
             <Textarea
               label="Deskripsi"
               name="description"
@@ -87,14 +119,15 @@ export default function CreateEventPage() {
               placeholder="Ceritakan tentang event Anda..."
               rows={4}
             />
-            <Input
-              label="URL Poster (opsional)"
-              name="poster_url"
-              type="url"
-              value={form.poster_url}
-              onChange={handleChange}
-              placeholder="https://example.com/poster.jpg"
+
+            {/* Poster Upload */}
+            <ImageUpload
+              label="Poster Event (opsional)"
+              placeholder="Seret poster event ke sini atau klik untuk memilih"
+              value={form.poster_url || null}
+              onChange={(url) => setForm((prev) => ({ ...prev, poster_url: url || '' }))}
             />
+
             <Button type="submit" loading={submitting} fullWidth size="lg">
               🚀 Publikasikan Event
             </Button>

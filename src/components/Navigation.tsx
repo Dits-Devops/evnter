@@ -10,15 +10,15 @@ interface NavItem {
 }
 
 const userNavItems: NavItem[] = [
-  { href: '/', label: 'Home', icon: '🏠' },
+  { href: '/', label: 'Beranda', icon: '🏠' },
   { href: '/events', label: 'Event', icon: '🎪' },
-  { href: '/tickets', label: 'Tiket Saya', icon: '🎟️' },
+  { href: '/tickets', label: 'Tiket', icon: '🎟️' },
   { href: '/profile', label: 'Profil', icon: '👤' },
 ];
 
 const organizerNavItems: NavItem[] = [
-  { href: '/organizer', label: 'Home', icon: '🏠' },
-  { href: '/organizer/my-events', label: 'Acara Saya', icon: '🎪' },
+  { href: '/organizer/my-events', label: 'Event Saya', icon: '🎪' },
+  { href: '/organizer/create-event', label: 'Buat Event', icon: '➕' },
   { href: '/organizer/scanner', label: 'Scan', icon: '📷' },
   { href: '/organizer/profile', label: 'Profil', icon: '👤' },
 ];
@@ -27,7 +27,8 @@ const adminNavItems: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: '📊' },
   { href: '/admin/users', label: 'Users', icon: '👥' },
   { href: '/admin/events', label: 'Events', icon: '🎪' },
-  { href: '/admin/payments', label: 'Payments', icon: '💳' },
+  { href: '/admin/payments', label: 'Bayar', icon: '💳' },
+  { href: '/admin/profile', label: 'Profil', icon: '👤' },
 ];
 
 export default function Navigation() {
@@ -42,17 +43,20 @@ export default function Navigation() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 safe-area-bottom">
       <div className="flex">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href) && item.href.length > 1);
           return (
             <Link
               key={item.href}
               href={item.href}
               className={`flex-1 flex flex-col items-center py-2 gap-1 min-h-[56px] transition-colors ${
-                isActive ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
               }`}
             >
-              <span className="text-xl">{item.icon}</span>
+              <span className="text-xl leading-none">{item.icon}</span>
               <span className="text-xs font-medium">{item.label}</span>
+              {isActive && (
+                <span className="absolute bottom-0 w-6 h-0.5 bg-blue-600 rounded-full" />
+              )}
             </Link>
           );
         })}

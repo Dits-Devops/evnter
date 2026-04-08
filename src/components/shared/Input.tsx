@@ -1,28 +1,19 @@
 import React from 'react';
 
-interface InputProps {
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
-  name: string;
-  type?: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  placeholder?: string;
-  required?: boolean;
   error?: string;
-  disabled?: boolean;
 }
 
 export default function Input({
   label,
   name,
-  type = 'text',
-  value,
-  onChange,
-  placeholder,
-  required,
   error,
-  disabled,
+  required,
+  className,
+  ...rest
 }: InputProps) {
+  void className; // intentionally overridden
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={name} className="text-sm font-semibold text-gray-700">
@@ -31,12 +22,8 @@ export default function Input({
       <input
         id={name}
         name={name}
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
         required={required}
-        disabled={disabled}
+        {...rest}
         className={`w-full px-4 py-3 rounded-2xl border bg-white text-gray-800 text-base transition-colors min-h-[48px] disabled:bg-gray-50 ${
           error
             ? 'border-red-400 focus:outline-none focus:ring-2 focus:ring-red-300'

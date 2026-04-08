@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="16" fill="#2563eb"/>
+  <!-- Ticket body -->
+  <rect x="5" y="11" width="22" height="10" rx="2" fill="white" opacity="0.95"/>
+  <!-- Ticket notches -->
+  <circle cx="5" cy="16" r="2" fill="#2563eb"/>
+  <circle cx="27" cy="16" r="2" fill="#2563eb"/>
+  <!-- Ticket perforation line -->
+  <line x1="11" y1="11" x2="11" y2="21" stroke="#2563eb" stroke-width="1" stroke-dasharray="1.5 1.5"/>
+  <!-- Letter E -->
+  <text x="14" y="19.5" font-family="Arial, sans-serif" font-weight="900" font-size="8" fill="#2563eb">E</text>
+</svg>

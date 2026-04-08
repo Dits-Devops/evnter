@@ -34,7 +34,22 @@ export function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+export function formatPrice(price?: number): string {
+  if (!price || price === 0) return 'Gratis';
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(price);
+}
+
 export function createWhatsAppMessage(ticketCode: string, eventTitle: string, eventDate: string): string {
   const message = `🎟️ Tiket EVNTER saya!\n\nEvent: ${eventTitle}\nTanggal: ${formatDate(eventDate)}\nKode Tiket: ${ticketCode}\n\nDownload EVNTER untuk lihat QR Code tiket.`;
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}
+
+export function createWhatsAppUpgradeMessage(userName: string, userEmail: string): string {
+  const message = `Halo Admin EVNTER, saya ingin konfirmasi pembayaran upgrade Organizer Pro.\n\nNama saya: ${userName}\nEmail: ${userEmail}\n\nBerikut bukti transfer saya.`;
+  return `https://wa.me/6285882846665?text=${encodeURIComponent(message)}`;
 }

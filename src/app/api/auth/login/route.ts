@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email atau password salah' }, { status: 401 });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash: _, ...safeUser } = user;
     const token = signToken(safeUser);
     const response = NextResponse.json({ success: true, user: safeUser });

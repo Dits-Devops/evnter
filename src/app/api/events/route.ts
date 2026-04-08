@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, date, location, poster_url } = body;
+    const { title, description, date, location, poster_url, price } = body;
 
     if (!title || !date || !location) {
       return NextResponse.json({ error: 'Title, tanggal, dan lokasi wajib diisi' }, { status: 400 });
@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
         date,
         location,
         poster_url,
+        price: price || 0,
         organizer_id: user.id,
         status: 'published',
       })
