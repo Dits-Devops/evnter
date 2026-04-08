@@ -38,20 +38,25 @@ export default function RegisterPage() {
     setSubmitting(true);
     setError('');
 
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error || 'Registrasi gagal');
+      if (!res.ok) {
+        setError(data.error || 'Registrasi gagal');
+        setSubmitting(false);
+        return;
+      }
+
+      router.replace('/');
+    } catch {
+      setError('Gagal terhubung ke server. Periksa koneksi internet Anda.');
       setSubmitting(false);
-      return;
     }
-
-    router.replace('/');
   }
 
   if (loading) return null;

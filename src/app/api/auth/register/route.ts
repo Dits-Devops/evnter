@@ -38,7 +38,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: 'Registrasi gagal, coba lagi' }, { status: 500 });
+      const message = process.env.NODE_ENV === 'development'
+        ? `Registrasi gagal: ${error.message}`
+        : 'Registrasi gagal, coba lagi';
+      return NextResponse.json({ error: message }, { status: 500 });
     }
 
     const token = signToken(user);
@@ -51,7 +54,10 @@ export async function POST(request: NextRequest) {
       path: '/',
     });
     return response;
-  } catch {
-    return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+  } catch (err) {
+    const message = process.env.NODE_ENV === 'development'
+      ? `Kesalahan server: ${err instanceof Error ? err.message : String(err)}`
+      : 'Terjadi kesalahan server';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
