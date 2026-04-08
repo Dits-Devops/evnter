@@ -52,14 +52,16 @@ export async function POST(request: NextRequest) {
     if (updateError) return NextResponse.json({ error: 'Gagal check-in' }, { status: 500 });
 
     // Write check-in log (best-effort; table may not exist yet)
-    await supabase.from('checkin_logs').insert({
+    supabase.from('checkin_logs').insert({
       ticket_id: ticket.id,
       event_id: ticket.event_id,
       user_id: ticket.user_id,
       scanned_by: user.id,
       scanned_at: new Date().toISOString(),
       result: 'success',
-    }).then(() => null, () => null);
+    }).then(({ error: logError }) => {
+      if (logError) console.warn('checkin_log insert skipped:', logError.message);
+    });
 
     return NextResponse.json({
       success: true,

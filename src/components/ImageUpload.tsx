@@ -31,7 +31,7 @@ export default function ImageUpload({
     });
   }
 
-  async function handleFile(file: File) {
+  const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('File harus berupa gambar');
       return;
@@ -50,7 +50,7 @@ export default function ImageUpload({
     } finally {
       setUploading(false);
     }
-  }
+  }, [onChange]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
@@ -59,8 +59,7 @@ export default function ImageUpload({
       const file = e.dataTransfer.files[0];
       if (file) handleFile(file);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [handleFile]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {

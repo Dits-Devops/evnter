@@ -128,15 +128,6 @@ export default function EventDetailPage() {
                 </div>
               </div>
             )}
-            {!isFree && (
-              <div className="flex items-start gap-3">
-                <span className="text-xl">💰</span>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium">Harga Tiket</p>
-                  <p className="text-sm font-bold text-orange-600">{price}</p>
-                </div>
-              </div>
-            )}
           </div>
 
           {event.description && (

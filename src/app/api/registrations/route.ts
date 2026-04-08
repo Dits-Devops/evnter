@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     const price = event.price || 0;
-    const paymentStatus = price > 0 ? 'belum_bayar' : 'belum_bayar';
+    const paymentStatus = price > 0 ? 'belum_bayar' : 'belum_bayar'; // same initial state; organizer changes it after verification
 
     const { data: registration, error: regError } = await supabase
       .from('event_registrations')

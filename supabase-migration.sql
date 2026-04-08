@@ -1,7 +1,7 @@
 -- EVNTER Database Migration
 -- Run this in Supabase SQL Editor before using new features
 
--- 1. Add price field to events
+-- 1. Add price field to events (amount in Indonesian Rupiah / IDR, integer)
 ALTER TABLE events ADD COLUMN IF NOT EXISTS price INTEGER DEFAULT 0;
 
 -- 2. Add profile_image to users
