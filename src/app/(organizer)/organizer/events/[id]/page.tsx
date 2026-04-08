@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Event, Ticket, EventRegistration } from '@/types';
 import { formatDate, formatDateTime } from '@/utils/helpers';
 import Header from '@/components/Header';
@@ -13,6 +13,7 @@ type TabType = 'menunggu' | 'disetujui' | 'checkin' | 'belum';
 
 export default function OrganizerEventPage() {
   const params = useParams();
+  const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
@@ -20,6 +21,8 @@ export default function OrganizerEventPage() {
   const [activeTab, setActiveTab] = useState<TabType>('menunggu');
   const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchData = useCallback(async () => {
     const [eventRes, ticketsRes, regRes] = await Promise.all([
@@ -64,6 +67,40 @@ export default function OrganizerEventPage() {
     setProcessing(null);
   }
 
+  async function handleTogglePublish() {
+    if (!event) return;
+    setProcessing('publish');
+    const newStatus = event.status === 'published' ? 'draft' : 'published';
+    const res = await fetch(`/api/events/${event.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) {
+      setActionMsg({
+        type: 'success',
+        text: newStatus === 'published' ? 'Event berhasil diaktifkan' : 'Event berhasil dinonaktifkan',
+      });
+      await fetchData();
+    } else {
+      setActionMsg({ type: 'error', text: 'Gagal mengubah status event' });
+    }
+    setProcessing(null);
+  }
+
+  async function handleDelete() {
+    if (!event) return;
+    setDeleting(true);
+    const res = await fetch(`/api/events/${event.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      router.replace('/organizer/my-events');
+    } else {
+      setActionMsg({ type: 'error', text: 'Gagal menghapus event' });
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  }
+
   if (loading) return <LoadingSpinner size="lg" />;
   if (!event) {
     return (
@@ -92,9 +129,43 @@ export default function OrganizerEventPage() {
       <div className="px-4 py-4">
         {/* Event Summary */}
         <Card className="mb-4">
-          <h2 className="font-black text-gray-800 text-xl mb-2">{event.title}</h2>
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <h2 className="font-black text-gray-800 text-xl flex-1">{event.title}</h2>
+            <span
+              className={`flex-shrink-0 text-xs font-bold px-2 py-1 rounded-full ${
+                event.status === 'published' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+              }`}
+            >
+              {event.status === 'published' ? 'Aktif' : 'Draft'}
+            </span>
+          </div>
           <p className="text-sm text-blue-600 mb-1">📅 {formatDate(event.date)}</p>
-          <p className="text-sm text-gray-500 mb-1">📍 {event.location}</p>
+          <p className="text-sm text-gray-500 mb-3">📍 {event.location}</p>
+
+          {/* Event Management Actions */}
+          <div className="flex gap-2 pt-3 border-t border-gray-100">
+            <button
+              onClick={handleTogglePublish}
+              disabled={processing === 'publish'}
+              className={`flex-1 text-sm font-semibold rounded-xl py-2 px-3 disabled:opacity-50 ${
+                event.status === 'published'
+                  ? 'bg-yellow-50 text-yellow-700'
+                  : 'bg-green-50 text-green-700'
+              }`}
+            >
+              {processing === 'publish'
+                ? '...'
+                : event.status === 'published'
+                ? '⏸ Nonaktifkan'
+                : '▶ Aktifkan'}
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-sm font-semibold bg-red-50 text-red-600 rounded-xl py-2 px-4"
+            >
+              🗑 Hapus
+            </button>
+          </div>
         </Card>
 
         {/* Stats */}
@@ -270,6 +341,33 @@ export default function OrganizerEventPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-4xl text-center mb-3">🗑️</p>
+            <h3 className="text-lg font-bold text-gray-800 text-center mb-2">Hapus Event?</h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Event <strong>{event.title}</strong> akan dihapus permanen beserta semua tiket. Tindakan ini tidak bisa dibatalkan.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" fullWidth onClick={() => setShowDeleteConfirm(false)}>
+                Batal
+              </Button>
+              <Button variant="danger" fullWidth loading={deleting} onClick={handleDelete}>
+                Hapus
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -137,7 +137,7 @@ export default function ProfilePage() {
         {/* Upgrade to Organizer */}
         {user?.pro_status === 'free' && (
           <button
-            onClick={() => router.push('/organizer/upgrade')}
+            onClick={() => router.push('/upgrade')}
             className="w-full bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 flex items-center gap-3 mb-4"
           >
             <span className="text-3xl">⭐</span>

@@ -14,7 +14,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
       if (!user) {
         router.replace('/login');
       } else if (user.role !== 'organizer' && user.role !== 'admin') {
-        router.replace('/organizer/upgrade');
+        router.replace('/upgrade');
       }
     }
   }, [user, loading, router]);
