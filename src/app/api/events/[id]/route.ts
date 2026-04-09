@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
+import { createNotification } from '@/lib/notifications';
 
 export async function GET(
   request: NextRequest,
@@ -55,6 +56,28 @@ export async function PUT(
       .single();
 
     if (error) return NextResponse.json({ error: 'Gagal update event' }, { status: 500 });
+    
+    // Notify all participants about schedule change
+    if (body.date || body.location || body.time) {
+      const { data: participants } = await supabase
+        .from('tickets')
+        .select('user_id')
+        .eq('event_id', id);
+        
+      if (participants) {
+        // Find unique participants
+        const uniqueUserIds = Array.from(new Set(participants.map(p => p.user_id)));
+        for (const uid of uniqueUserIds) {
+          await createNotification(
+            uid,
+            'schedule_change',
+            `Jadwal/Lokasi event "${data.title}" telah diperbarui.`,
+            `/events/${id}`
+          );
+        }
+      }
+    }
+
     return NextResponse.json({ success: true, event: data });
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -84,6 +107,11 @@ export async function DELETE(
     if (event.organizer_id !== user.id && user.role !== 'admin') {
       return NextResponse.json({ error: 'Tidak diizinkan' }, { status: 403 });
     }
+
+    // Explicit manual cascade
+    await supabase.from('checkin_logs').delete().eq('event_id', id);
+    await supabase.from('tickets').delete().eq('event_id', id);
+    await supabase.from('event_registrations').delete().eq('event_id', id);
 
     const { error } = await supabase.from('events').delete().eq('id', id);
     if (error) return NextResponse.json({ error: 'Gagal menghapus event' }, { status: 500 });

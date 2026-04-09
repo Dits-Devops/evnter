@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
+import { createNotification } from '@/lib/notifications';
 
 export async function GET() {
   try {
@@ -41,6 +42,13 @@ export async function POST(request: NextRequest) {
         .from('users')
         .update({ pro_status: 'approved', role: 'organizer' })
         .eq('id', userId);
+        
+      await createNotification(
+        userId, 
+        'approval_accepted', 
+        'Selamat! Pembayaran Pro Anda telah disetujui. Sekarang Anda sudah menjadi Organizer Pro.',
+        '/organizer/my-events'
+      );
       return NextResponse.json({
         success: true,
         message: 'Pembayaran disetujui, user menjadi organizer',
@@ -50,6 +58,13 @@ export async function POST(request: NextRequest) {
         .from('users')
         .update({ pro_status: 'free', pro_payment_proof_url: null })
         .eq('id', userId);
+
+      await createNotification(
+        userId, 
+        'approval_rejected', 
+        'Maaf, permohonan Upgrade Pro Anda ditolak. Silakan periksa kembali nominal atau resi Anda.',
+        '/organizer/upgrade'
+      );
       return NextResponse.json({ success: true, message: 'Pembayaran ditolak' });
     }
 

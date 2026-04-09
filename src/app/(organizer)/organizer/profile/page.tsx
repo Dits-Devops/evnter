@@ -7,15 +7,21 @@ import Button from '@/components/Button';
 import Input from '@/components/shared/Input';
 import StatusMessage from '@/components/StatusMessage';
 import Card from '@/components/Card';
+import AvatarUpload from '@/components/AvatarUpload';
 import { getInitials } from '@/utils/helpers';
+import { useAlert } from '@/context/AlertContext';
 
 export default function OrganizerProfilePage() {
   const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: user?.name || '', whatsapp: user?.whatsapp || '' });
+  const [form, setForm] = useState({ 
+    name: user?.name || '', 
+    whatsapp: user?.whatsapp || '',
+    profile_image: user?.profile_image || null as string | null
+  });
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const alert = useAlert();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -23,20 +29,31 @@ export default function OrganizerProfilePage() {
 
   async function handleSave() {
     setSaving(true);
-    const res = await fetch('/api/users', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      await refreshUser();
-      setMessage({ type: 'success', text: 'Profil berhasil diperbarui!' });
-      setEditing(false);
-    } else {
-      setMessage({ type: 'error', text: data.error || 'Gagal menyimpan' });
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          whatsapp: form.whatsapp,
+          profile_image: form.profile_image
+        }),
+      });
+
+      if (res.ok) {
+        await refreshUser();
+        await alert.success('Berhasil', 'Foto profil berhasil diperbarui');
+        setEditing(false);
+      } else {
+        const data = await res.json();
+        await alert.error('Gagal', data.error || 'Foto profil gagal diperbarui');
+      }
+    } catch (err) {
+      console.error('Update Organizer Profile Error:', err);
+      await alert.error('Gagal', 'Terjadi kesalahan sistem');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleLogout() {
@@ -44,13 +61,23 @@ export default function OrganizerProfilePage() {
     router.replace('/login');
   }
 
+  const profileImageUrl = user?.profile_image ? `${user.profile_image}?t=${new Date(user.updated_at || Date.now()).getTime()}` : null;
+
   return (
     <div>
       <Header title="👤 Profil Organizer" />
       <div className="px-4 py-6">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center text-2xl font-black text-white mb-3">
-            {user ? getInitials(user.name) : '?'}
+          <div className="w-24 h-24 bg-card rounded-3xl shadow-soft flex items-center justify-center p-1.5 mb-4 border border-card/40">
+            {editing && form.profile_image ? (
+              <img src={form.profile_image} alt="Preview" className="w-full h-full object-cover rounded-[1.25rem]" />
+            ) : profileImageUrl ? (
+              <img src={profileImageUrl} alt={user?.name} className="w-full h-full object-cover rounded-[1.25rem]" />
+            ) : (
+             <div className="w-full h-full bg-gradient-to-br from-orange-400 to-pink-500 rounded-[1.25rem] flex items-center justify-center text-3xl font-black text-white">
+               {user ? getInitials(user.name) : '?'}
+             </div>
+            )}
           </div>
           <h2 className="text-xl font-bold text-gray-800">{user?.name}</h2>
           <p className="text-sm text-gray-500">{user?.email}</p>
@@ -59,11 +86,7 @@ export default function OrganizerProfilePage() {
           </span>
         </div>
 
-        {message && (
-          <div className="mb-4">
-            <StatusMessage type={message.type} message={message.text} />
-          </div>
-        )}
+
 
         <Card className="mb-4">
           <div className="flex items-center justify-between mb-4">
@@ -72,7 +95,11 @@ export default function OrganizerProfilePage() {
               <button
                 onClick={() => {
                   setEditing(true);
-                  setForm({ name: user?.name || '', whatsapp: user?.whatsapp || '' });
+                  setForm({ 
+                    name: user?.name || '', 
+                    whatsapp: user?.whatsapp || '',
+                    profile_image: user?.profile_image || null 
+                  });
                 }}
                 className="text-sm text-blue-600 font-semibold"
               >
@@ -81,16 +108,22 @@ export default function OrganizerProfilePage() {
             )}
           </div>
           {editing ? (
-            <div className="flex flex-col gap-3">
-              <Input label="Nama" name="name" value={form.name} onChange={handleChange} required />
-              <Input
-                label="WhatsApp"
-                name="whatsapp"
-                type="tel"
-                value={form.whatsapp}
-                onChange={handleChange}
-                required
+            <div className="flex flex-col gap-6 items-center">
+              <AvatarUpload 
+                value={form.profile_image} 
+                onUploadSuccess={(url) => setForm(p => ({ ...p, profile_image: url }))} 
               />
+              <div className="w-full space-y-4">
+                <Input label="Nama" name="name" value={form.name} onChange={handleChange} required />
+                <Input
+                  label="WhatsApp"
+                  name="whatsapp"
+                  type="tel"
+                  value={form.whatsapp}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
               <div className="flex gap-2 mt-2">
                 <Button variant="secondary" onClick={() => setEditing(false)} className="flex-1">
                   Batal

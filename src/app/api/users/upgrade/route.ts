@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
+import { createNotification } from '@/lib/notifications';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +30,20 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id);
 
     if (error) return NextResponse.json({ error: 'Gagal submit permintaan' }, { status: 500 });
+
+    // Notify admins
+    const { data: admins } = await supabase.from('users').select('id').eq('role', 'admin');
+    if (admins) {
+      for (const admin of admins) {
+        await createNotification(
+          admin.id,
+          'general',
+          `Ada pengajuan Upgrade Pro baru dari ${user.name}.`,
+          '/admin/payments'
+        );
+      }
+    }
+
     return NextResponse.json({ success: true, message: 'Permintaan upgrade terkirim!' });
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

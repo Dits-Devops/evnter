@@ -4,7 +4,7 @@ import Header from '@/components/Header';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import StatusMessage from '@/components/StatusMessage';
+import { useAlert } from '@/context/AlertContext';
 
 interface Payment {
   id: string;
@@ -19,7 +19,7 @@ interface Payment {
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const alert = useAlert();
 
   useEffect(() => { fetchPayments(); }, []);
 
@@ -30,21 +30,30 @@ export default function AdminPaymentsPage() {
   }
 
   async function handleAction(userId: string, action: 'approve' | 'reject') {
+    const isConfirm = await alert.confirm(
+      action === 'approve' ? 'Setujui Upgrade?' : 'Tolak Upgrade?',
+      `Apakah Anda yakin ingin ${action === 'approve' ? 'menerima' : 'menolak'} pembayaran ini?`
+    );
+    if (!isConfirm) return;
+
     const res = await fetch('/api/admin/payments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, action }),
     });
     const data = await res.json();
-    if (res.ok) { setMessage({ type: 'success', text: data.message }); fetchPayments(); }
-    else { setMessage({ type: 'error', text: data.error }); }
+    if (res.ok) {
+      await alert.success('Berhasil', data.message || 'Status berhasil diubah');
+      fetchPayments();
+    } else {
+      await alert.error('Gagal', data.error || 'Terjadi kesalahan saat mengubah status');
+    }
   }
 
   return (
     <div>
       <Header title="💳 Pembayaran Pro" />
       <div className="px-4 py-4">
-        {message && <div className="mb-4"><StatusMessage type={message.type} message={message.text} /></div>}
         {loading ? <LoadingSpinner /> : payments.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <p className="text-5xl mb-3">💳</p>
@@ -59,11 +68,13 @@ export default function AdminPaymentsPage() {
                 <span className={`text-xs px-2 py-1 rounded-full font-semibold mb-3 inline-block ${p.pro_status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
                   {p.pro_status}
                 </span>
-                {p.pro_payment_proof_url && (
-                  <a href={p.pro_payment_proof_url} target="_blank" rel="noopener noreferrer"
-                    className="block text-xs text-blue-600 underline mb-3">
-                    Lihat Bukti Pembayaran
-                  </a>
+                {p.pro_payment_proof_url && p.pro_payment_proof_url !== 'via-whatsapp' && (
+                  <div className="mb-4 bg-muted/30 p-2 rounded-2xl border border-border/50">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">📸 Bukti Transfer</p>
+                    <a href={p.pro_payment_proof_url} target="_blank" rel="noopener noreferrer">
+                      <img src={p.pro_payment_proof_url} alt="Bukti Pembayaran" className="w-full h-48 object-cover rounded-xl" />
+                    </a>
+                  </div>
                 )}
                 {p.pro_status === 'pending' && (
                   <div className="flex gap-2">

@@ -1,16 +1,18 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Card from '@/components/Card';
 import ImageUpload from '@/components/ImageUpload';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAlert } from '@/context/AlertContext';
 
-export default function CreateEventPage() {
+export default function EditEventPage() {
   const router = useRouter();
+  const params = useParams();
   const [form, setForm] = useState({
     title: '',
     date: '',
@@ -25,8 +27,37 @@ export default function CreateEventPage() {
     catatan_pembayaran: '',
     qris_image: '',
   });
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const alert = useAlert();
+
+  useEffect(() => {
+    fetch(`/api/events/${params.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.event) {
+          const e = data.event;
+          // Format date for datetime-local input
+          const formattedDate = e.date ? new Date(e.date).toISOString().slice(0, 16) : '';
+          setForm({
+            title: e.title || '',
+            date: formattedDate,
+            location: e.location || '',
+            description: e.description || '',
+            price: e.price ? String(e.price) : '',
+            poster_url: e.poster_url || '',
+            max_peserta: e.max_peserta ? String(e.max_peserta) : '',
+            metode_pembayaran: e.metode_pembayaran || '',
+            nomor_rekening: e.nomor_rekening || '',
+            nama_pemilik: e.nama_pemilik || '',
+            catatan_pembayaran: e.catatan_pembayaran || '',
+            qris_image: e.qris_image || '',
+          });
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [params.id]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -40,27 +71,30 @@ export default function CreateEventPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    const res = await fetch('/api/events', {
-      method: 'POST',
+    const res = await fetch(`/api/events/${params.id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
         price: form.price ? parseInt(form.price) : 0,
+        max_peserta: form.max_peserta ? parseInt(form.max_peserta) : 0,
       }),
     });
     const data = await res.json();
     if (res.ok) {
-      await alert.success('Berhasil', 'Event baru berhasil dibuat!');
+      await alert.success('Berhasil', 'Perubahan berhasil disimpan!');
       router.push(`/organizer/events/${data.event.id}`);
     } else {
-      await alert.error('Gagal', data.error || 'Gagal membuat event');
+      await alert.error('Gagal', data.error || 'Gagal menyimpan event');
       setSubmitting(false);
     }
   }
 
+  if (loading) return <LoadingSpinner size="lg" />;
+
   return (
-    <div>
-      <Header title="✨ Buat Event" showBack />
+    <div className="pb-24">
+      <Header title="✏️ Edit Event" showBack />
       <div className="px-4 py-4">
         <Card>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -69,7 +103,6 @@ export default function CreateEventPage() {
               name="title"
               value={form.title}
               onChange={handleInputChange}
-              placeholder="Contoh: Workshop Web Development"
               required
             />
             <Input
@@ -85,7 +118,6 @@ export default function CreateEventPage() {
               name="location"
               value={form.location}
               onChange={handleInputChange}
-              placeholder="Contoh: Gedung A, Jakarta"
               required
             />
 
@@ -98,7 +130,6 @@ export default function CreateEventPage() {
                 min="0"
                 value={form.price}
                 onChange={handleInputChange}
-                placeholder="0"
               />
               {(!form.price || parseInt(form.price) === 0) && (
                 <p className="text-xs text-green-600 mt-1 font-semibold">✅ Event ini Gratis</p>
@@ -152,12 +183,10 @@ export default function CreateEventPage() {
                   name="catatan_pembayaran"
                   value={form.catatan_pembayaran}
                   onChange={handleChange}
-                  placeholder="Contoh: Mohon sertakan 3 nomor telepon terakhir saat transfer..."
                   rows={2}
                 />
                 <ImageUpload
                   label="QRIS (opsional)"
-                  placeholder="Unggah kode QRIS"
                   value={form.qris_image || null}
                   onChange={(url) => setForm((prev) => ({ ...prev, qris_image: url || '' }))}
                 />
@@ -169,20 +198,18 @@ export default function CreateEventPage() {
               name="description"
               value={form.description}
               onChange={handleChange}
-              placeholder="Ceritakan tentang event Anda..."
               rows={4}
             />
 
             {/* Poster Upload */}
             <ImageUpload
               label="Poster Event (opsional)"
-              placeholder="Seret poster event ke sini atau klik untuk memilih"
               value={form.poster_url || null}
               onChange={(url) => setForm((prev) => ({ ...prev, poster_url: url || '' }))}
             />
 
             <Button type="submit" loading={submitting} fullWidth size="lg">
-              🚀 Publikasikan Event
+              💾 Simpan Perubahan
             </Button>
           </form>
         </Card>

@@ -11,8 +11,8 @@ export default function Card({ children, className = '', onClick, padding = true
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${padding ? 'p-4' : ''} ${
-        onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''
+      className={`bg-card text-card-foreground rounded-[1.5rem] shadow-soft border border-border/50 ${padding ? 'p-5' : ''} ${
+        onClick ? 'cursor-pointer hover:shadow-lg transition-all active:scale-[0.99]' : ''
       } ${className}`}
     >
       {children}

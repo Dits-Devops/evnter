@@ -4,11 +4,11 @@ import Header from '@/components/Header';
 import Button from '@/components/Button';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
-import StatusMessage from '@/components/StatusMessage';
 import Card from '@/components/Card';
 import ImageUpload from '@/components/ImageUpload';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { PaymentSettings } from '@/types';
+import { useToast } from '@/context/ToastContext';
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Partial<PaymentSettings>>({
@@ -21,7 +21,7 @@ export default function AdminSettingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     fetch('/api/admin/settings')
@@ -43,7 +43,7 @@ export default function AdminSettingsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setMessage(null);
+    
     const res = await fetch('/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -51,9 +51,9 @@ export default function AdminSettingsPage() {
     });
     const data = await res.json();
     if (res.ok) {
-      setMessage({ type: 'success', text: 'Pengaturan berhasil disimpan!' });
+      toast.success('Pengaturan pembayaran berhasil disimpan');
     } else {
-      setMessage({ type: 'error', text: data.error || 'Gagal menyimpan' });
+      toast.error(data.error || 'Gagal menyimpan pengaturan, silakan coba lagi');
     }
     setSaving(false);
   }
@@ -64,12 +64,6 @@ export default function AdminSettingsPage() {
     <div>
       <Header title="⚙️ Pengaturan Pembayaran" />
       <div className="px-4 py-4">
-        {message && (
-          <div className="mb-4">
-            <StatusMessage type={message.type} message={message.text} />
-          </div>
-        )}
-
         <form onSubmit={handleSave} className="flex flex-col gap-4">
           <Card>
             <h3 className="font-bold text-gray-800 mb-3">Informasi Rekening</h3>

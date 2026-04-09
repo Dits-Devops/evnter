@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Event } from '@/types';
 import { formatDate, formatPrice } from '@/utils/helpers';
-import Header from '@/components/Header';
 import Button from '@/components/Button';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Card from '@/components/Card';
+import { MyEventsListSkeleton } from '@/components/Skeleton';
+import { CalendarDays, MapPin, Settings, PauseCircle, PlayCircle, Trash2, Plus, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 
 export default function MyEventsPage() {
   const { user } = useAuth();
@@ -21,7 +22,7 @@ export default function MyEventsPage() {
   const fetchEvents = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const res = await fetch(`/api/events?organizer_id=${user.id}&status=all`);
+    const res = await fetch(`/api/events?organizer_id=${user.id}&status=all&t=${Date.now()}`);
     const data = await res.json();
     setEvents(data.events || []);
     setLoading(false);
@@ -33,132 +34,142 @@ export default function MyEventsPage() {
 
   async function handleUnpublish(eventId: string) {
     setProcessing(eventId);
+    // Optimistic update
+    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'draft' } : e));
+    
     await fetch(`/api/events/${eventId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'draft' }),
     });
-    await fetchEvents();
     setProcessing(null);
   }
 
   async function handlePublish(eventId: string) {
     setProcessing(eventId);
+    // Optimistic update
+    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'published' } : e));
+
     await fetch(`/api/events/${eventId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'published' }),
     });
-    await fetchEvents();
     setProcessing(null);
   }
 
   async function handleDelete(eventId: string) {
     setProcessing(eventId);
+    // Optimistic update
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+    
     await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
     setConfirmDelete(null);
-    await fetchEvents();
     setProcessing(null);
   }
 
   return (
-    <div>
-      <Header
-        title="🎪 Acara Saya"
-        rightAction={
-          <Link href="/organizer/create-event">
-            <Button size="sm">+ Buat Event</Button>
-          </Link>
-        }
-      />
-      <div className="px-4 py-4">
-        {loading ? (
-          <LoadingSpinner />
-        ) : events.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <p className="text-6xl mb-3">🎪</p>
-            <p className="text-lg font-semibold">Belum ada event</p>
-            <p className="text-sm mt-1 mb-6">Buat event pertama Anda sekarang!</p>
-            <Link href="/organizer/create-event">
-              <Button>+ Buat Event Baru</Button>
-            </Link>
+    <div className="min-h-screen bg-background pb-28 animate-in-slide-up">
+      {/* Header Area */}
+      <div className="bg-primary px-5 pt-14 pb-16 rounded-b-[2.5rem] relative overflow-hidden shadow-soft">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-[80px] mix-blend-overlay"></div>
+        <div className="relative z-10 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-white tracking-tight">Acara Saya</h1>
+            <p className="text-primary-foreground/80 text-sm mt-1">Kelola semua event yang Anda buat</p>
           </div>
+          <Link href="/organizer/create-event">
+            <Button size="icon" className="bg-white text-primary hover:bg-white/90 active:scale-95 transition-transform">
+              <Plus className="w-6 h-6" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="px-5 -mt-8 relative z-20">
+        {loading ? (
+          <MyEventsListSkeleton count={2} />
+        ) : events.length === 0 ? (
+          <Card className="text-center py-16 border-dashed border-2 border-border bg-card/80 backdrop-blur-sm">
+            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+               <CalendarDays className="w-10 h-10 text-primary opacity-50" />
+            </div>
+            <p className="text-xl font-bold text-foreground">Belum ada event</p>
+            <p className="text-sm mt-1 mb-8 text-muted-foreground">Buat event pertama Anda sekarang!</p>
+            <Link href="/organizer/create-event">
+              <Button fullWidth><Plus className="w-5 h-5" /> Buat Event Baru</Button>
+            </Link>
+          </Card>
         ) : (
           <div className="flex flex-col gap-3">
             {events.map((event) => {
               const isFree = !event.price || event.price === 0;
               const isPublished = event.status === 'published';
               return (
-                <Card key={event.id} padding={false} className="overflow-hidden">
-                  {/* Poster */}
-                  {event.poster_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={event.poster_url}
-                      alt={event.title}
-                      className="w-full h-36 object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-36 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                      <span className="text-5xl">🎪</span>
+                <Card key={event.id} padding={false} className="overflow-hidden group flex">
+                  {/* Small Square Poster */}
+                  <div className="w-24 h-24 shrink-0 relative overflow-hidden">
+                    {event.poster_url ? (
+                      <img
+                        src={event.poster_url}
+                        alt={event.title}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-primary/20 flex items-center justify-center">
+                        <ImageIcon className="w-6 h-6 text-primary/30" />
+                      </div>
+                    )}
+                    <div className="absolute top-1 left-1">
+                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider ${isPublished ? 'bg-blue-500 text-white' : 'bg-gray-400 text-white'}`}>
+                        {isPublished ? 'Live' : 'Draft'}
+                      </span>
                     </div>
-                  )}
-
-                  {/* Info */}
-                  <div className="p-3">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <h3 className="font-bold text-gray-800 text-base flex-1">{event.title}</h3>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            isFree ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                          }`}
-                        >
-                          {isFree ? 'Gratis' : formatPrice(event.price)}
-                        </span>
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            isPublished ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-                          }`}
-                        >
-                          {isPublished ? 'Aktif' : 'Draft'}
-                        </span>
+                  </div>
+ 
+                  {/* Compacter Info */}
+                  <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+                    <div className="mb-1">
+                      <h3 className="font-bold text-foreground text-sm line-clamp-1 leading-tight mb-1">{event.title}</h3>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
+                        <CalendarDays className="w-3 h-3 text-primary" />
+                        <span>{formatDate(event.date)}</span>
                       </div>
                     </div>
-                    <p className="text-sm text-blue-600 font-medium mb-1">📅 {formatDate(event.date)}</p>
-                    <p className="text-sm text-gray-500 mb-3">📍 {event.location}</p>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2 flex-wrap">
+                    
+                    {/* Compact Actions */}
+                    <div className="flex gap-1.5">
                       <button
                         onClick={() => router.push(`/organizer/events/${event.id}`)}
-                        className="flex-1 min-w-0 text-sm font-semibold bg-blue-50 text-blue-700 rounded-xl py-2 px-3 text-center"
+                        className="flex-1 bg-primary text-white text-[10px] font-bold py-1.5 rounded-lg active:scale-95 transition-all"
                       >
-                        📋 Kelola
+                        Kelola
                       </button>
+                      
                       {isPublished ? (
                         <button
-                          onClick={() => handleUnpublish(event.id)}
                           disabled={processing === event.id}
-                          className="flex-1 min-w-0 text-sm font-semibold bg-yellow-50 text-yellow-700 rounded-xl py-2 px-3 text-center disabled:opacity-50"
+                          onClick={() => handleUnpublish(event.id)}
+                          className="flex-1 bg-amber-50 text-amber-600 border border-amber-100 text-[10px] font-bold py-1.5 rounded-lg active:scale-95 transition-all disabled:opacity-50"
                         >
-                          {processing === event.id ? '...' : '⏸ Nonaktifkan'}
+                          {processing === event.id ? '...' : 'Draft'}
                         </button>
                       ) : (
                         <button
-                          onClick={() => handlePublish(event.id)}
                           disabled={processing === event.id}
-                          className="flex-1 min-w-0 text-sm font-semibold bg-green-50 text-green-700 rounded-xl py-2 px-3 text-center disabled:opacity-50"
+                          onClick={() => handlePublish(event.id)}
+                          className="flex-1 bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold py-1.5 rounded-lg active:scale-95 transition-all disabled:opacity-50"
                         >
-                          {processing === event.id ? '...' : '▶ Aktifkan'}
+                          {processing === event.id ? '...' : 'Aktifkan'}
                         </button>
                       )}
+                      
                       <button
-                        onClick={() => setConfirmDelete(event.id)}
                         disabled={processing === event.id}
-                        className="text-sm font-semibold bg-red-50 text-red-600 rounded-xl py-2 px-3 disabled:opacity-50"
+                        onClick={() => setConfirmDelete(event.id)}
+                        className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg active:scale-95 transition-all disabled:opacity-50"
                       >
-                        🗑
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -172,25 +183,28 @@ export default function MyEventsPage() {
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-5 animate-in fade-in duration-200"
           onClick={() => setConfirmDelete(null)}
         >
           <div
-            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+            className="bg-card rounded-[2rem] p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-4xl text-center mb-3">🗑️</p>
-            <h3 className="text-lg font-bold text-gray-800 text-center mb-2">Hapus Event?</h3>
-            <p className="text-sm text-gray-500 text-center mb-6">
+            <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-destructive" />
+            </div>
+            <h3 className="text-xl font-bold text-foreground text-center mb-2">Hapus Event?</h3>
+            <p className="text-sm text-muted-foreground text-center mb-8">
               Event ini akan dihapus permanen beserta semua data tiket. Tindakan ini tidak bisa dibatalkan.
             </p>
             <div className="flex gap-3">
-              <Button variant="secondary" fullWidth onClick={() => setConfirmDelete(null)}>
+              <Button variant="secondary" fullWidth onClick={() => setConfirmDelete(null)} size="lg">
                 Batal
               </Button>
               <Button
                 variant="danger"
                 fullWidth
+                size="lg"
                 loading={processing === confirmDelete}
                 onClick={() => handleDelete(confirmDelete)}
               >

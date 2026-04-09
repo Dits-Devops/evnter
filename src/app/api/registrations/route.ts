@@ -3,6 +3,9 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
 import { generateTicketCode, generateQRToken } from '@/lib/auth';
+import { createNotification } from '@/lib/notifications';
+
+export const dynamic = 'force-dynamic';
 
 // Get registrations — organizer sees by event_id, user sees their own
 export async function GET(request: NextRequest) {
@@ -16,30 +19,58 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get('event_id');
 
+    console.log(`[API Debug] GET Registrations - User: ${user.email}, Role: ${user.role}, EventID: ${eventId}`);
+
     const supabase = createServerClient();
 
     if (eventId && (user.role === 'organizer' || user.role === 'admin')) {
       const { data, error } = await supabase
         .from('event_registrations')
-        .select(`*, user:users(id, name, whatsapp, email)`)
+        .select(`
+          *, 
+          user:users!event_registrations_user_id_fkey(id, name, whatsapp, email)
+        `)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false });
 
-      if (error) return NextResponse.json({ error: 'Gagal mengambil data', registrations: [] }, { status: 200 });
+      if (error) {
+        console.error('[API Error] Supabase Fetch Error:', error);
+        return NextResponse.json({ 
+          error: 'Gagal mengambil data pendaftaran', 
+          details: error.message,
+          error_code: error.code,
+          registrations: [] 
+        }, { status: 500 });
+      }
+      
+      console.log(`[API Debug] Successfully fetched ${data?.length || 0} registrations for event ${eventId}`);
       return NextResponse.json({ registrations: data || [] });
     }
 
     // User: get their own registrations
+    console.log(`[API Debug] Falling back to USER registrations for user ${user.id}`);
     const { data, error } = await supabase
       .from('event_registrations')
       .select(`*, event:events(id, title, date, location)`)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
-    if (error) return NextResponse.json({ registrations: [] });
+    if (error) {
+      console.error('[API Error] User Fetch Error:', error);
+      return NextResponse.json({ 
+        registrations: [], 
+        error: 'Gagal memuat data pendaftaran user',
+        details: error.message 
+      }, { status: 500 });
+    }
+    
     return NextResponse.json({ registrations: data || [] });
-  } catch {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  } catch (err: any) {
+    console.error('[API Critical Error]:', err);
+    return NextResponse.json({ 
+      error: 'Terjadi kesalahan sistem', 
+      details: err.message || String(err) 
+    }, { status: 500 });
   }
 }
 
@@ -52,7 +83,9 @@ export async function POST(request: NextRequest) {
     const user = verifyToken(token);
     if (!user) return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
 
-    const { event_id } = await request.json();
+    const body = await request.json();
+    const { event_id, payment_proof_url } = body;
+
     if (!event_id) return NextResponse.json({ error: 'Event ID wajib diisi' }, { status: 400 });
 
     const supabase = createServerClient();
@@ -60,7 +93,7 @@ export async function POST(request: NextRequest) {
     // Check event exists and is published
     const { data: event } = await supabase
       .from('events')
-      .select('id, status, price')
+      .select('id, status, price, max_peserta')
       .eq('id', event_id)
       .single();
     if (!event) return NextResponse.json({ error: 'Event tidak ditemukan' }, { status: 404 });
@@ -83,6 +116,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check capacity if max_peserta > 0
+    if (event.max_peserta && event.max_peserta > 0) {
+      // Calculate current load (approved + pending)
+      const { count } = await supabase
+        .from('event_registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', event_id)
+        .in('approval_status', ['approved', 'pending_approval']);
+      
+      if (count !== null && count >= event.max_peserta) {
+        return NextResponse.json({ error: 'Mohon maaf, kuota peserta sudah penuh' }, { status: 400 });
+      }
+    }
+
     // Also check if they already have a ticket (legacy check)
     const { data: existingTicket } = await supabase
       .from('tickets')
@@ -95,7 +142,7 @@ export async function POST(request: NextRequest) {
     }
 
     const price = event.price || 0;
-    const paymentStatus = price > 0 ? 'belum_bayar' : 'belum_bayar'; // same initial state; organizer changes it after verification
+    const paymentStatus = payment_proof_url ? 'sudah_bayar' : 'belum_bayar'; // updated initially upon upload
 
     const { data: registration, error: regError } = await supabase
       .from('event_registrations')
@@ -104,25 +151,26 @@ export async function POST(request: NextRequest) {
         event_id,
         approval_status: 'pending_approval',
         payment_status: paymentStatus,
+        payment_proof_url: payment_proof_url || null,
       })
       .select(`*, event:events(id, title, date, location, price)`)
       .single();
 
     if (regError) {
-      // Fallback: if event_registrations table doesn't exist, create ticket directly
-      const ticket_code = generateTicketCode();
-      const qr_token = generateQRToken();
-      const { data: ticket, error: ticketError } = await supabase
-        .from('tickets')
-        .insert({ user_id: user.id, event_id, ticket_code, qr_token, status: 'active' })
-        .select(`*, event:events(id, title, date, location)`)
-        .single();
-      if (ticketError) return NextResponse.json({ error: 'Gagal mendaftar' }, { status: 500 });
-      return NextResponse.json({ success: true, ticket, mode: 'direct' }, { status: 201 });
+      console.error('Registration Insert Error:', regError);
+      return NextResponse.json({ error: `Gagal membuat pendaftaran: DB Error (${regError.message})` }, { status: 500 });
     }
 
+    await createNotification(
+      user.id,
+      'general',
+      `Pendaftaran untuk event "${event.title}" sedang menunggu persetujuan organizer.`,
+      `/events/${event_id}`
+    );
+
     return NextResponse.json({ success: true, registration, mode: 'pending' }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  } catch (err: any) {
+    console.error('Registration Critical Error:', err);
+    return NextResponse.json({ error: 'Server error', details: err.message }, { status: 500 });
   }
 }

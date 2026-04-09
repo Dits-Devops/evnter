@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/Button';
 import Input from '@/components/shared/Input';
 import StatusMessage from '@/components/StatusMessage';
-import Card from '@/components/Card';
+import { UserPlus } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -62,16 +62,21 @@ export default function RegisterPage() {
   if (loading) return null;
 
   return (
-    <Card>
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Daftar Akun</h2>
-      {error && <div className="mb-4"><StatusMessage type="error" message={error} /></div>}
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-2xl font-extrabold text-foreground tracking-tight">Buat Akun Baru</h2>
+        <p className="text-sm text-muted-foreground mt-1">Daftar untuk mulai memesan tiket</p>
+      </div>
+
+      {error && <StatusMessage type="error" message={error} />}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
           label="Nama Lengkap"
           name="name"
           value={form.name}
           onChange={handleChange}
-          placeholder="Masukkan nama lengkap"
+          placeholder="M. Fulan"
           required
         />
         <Input
@@ -101,16 +106,18 @@ export default function RegisterPage() {
           placeholder="08xxxxxxxxxx"
           required
         />
-        <Button type="submit" loading={submitting} fullWidth size="lg">
+        <Button type="submit" loading={submitting} fullWidth size="lg" className="mt-2">
+          <UserPlus className="w-5 h-5 mr-1 hidden" />
           Daftar Sekarang
         </Button>
       </form>
-      <p className="text-center text-sm text-gray-500 mt-6">
+
+      <p className="text-center text-sm text-muted-foreground mt-8">
         Sudah punya akun?{' '}
-        <Link href="/login" className="text-blue-600 font-semibold">
-          Masuk
+        <Link href="/login" className="text-primary font-bold hover:underline transition-all">
+          Masuk di sini
         </Link>
       </p>
-    </Card>
+    </div>
   );
 }

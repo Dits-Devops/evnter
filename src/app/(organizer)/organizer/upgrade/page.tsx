@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
-import StatusMessage from '@/components/StatusMessage';
 import Card from '@/components/Card';
-import { createWhatsAppUpgradeMessage } from '@/utils/helpers';
+import ImageUpload from '@/components/ImageUpload';
+import { useAlert } from '@/context/AlertContext';
 
 interface Settings {
   payment_name?: string;
@@ -28,7 +28,9 @@ export default function UpgradePage() {
     description: 'Transfer ke rekening di atas atau scan QRIS',
   });
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const alert = useAlert();
 
   useEffect(() => {
     fetch('/api/admin/settings')
@@ -40,23 +42,14 @@ export default function UpgradePage() {
     return (
       <div>
         <Header title="Upgrade ke Pro" showBack />
-        <div className="px-4 py-8 flex flex-col items-center text-center">
-          <p className="text-6xl mb-4">⏳</p>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Menunggu Verifikasi</h2>
-          <p className="text-gray-500 text-sm">
-            Pembayaran Anda sedang diverifikasi oleh admin. Mohon tunggu 1x24 jam.
-          </p>
-          <div className="mt-6">
-            <Button
-              variant="outline"
-              onClick={() => {
-                const waLink = createWhatsAppUpgradeMessage(user?.name || '', user?.email || '');
-                window.open(waLink, '_blank');
-              }}
-            >
-              💬 Chat Admin WhatsApp
-            </Button>
+        <div className="px-5 py-12 flex flex-col items-center text-center">
+          <div className="w-24 h-24 bg-orange-100/50 rounded-[2rem] flex items-center justify-center mb-6">
+            <p className="text-5xl animate-bounce">⏳</p>
           </div>
+          <h2 className="text-2xl font-black text-gray-800 mb-3">Menunggu Verifikasi</h2>
+          <p className="text-gray-500 font-medium leading-relaxed">
+            Bukti transfer berhasil dikirim. Admin akan memverifikasi pembayaran Anda maksimal 1x24 jam.
+          </p>
         </div>
       </div>
     );
@@ -78,25 +71,22 @@ export default function UpgradePage() {
     );
   }
 
-  async function handleSendWhatsApp() {
-    if (!user) return;
+  async function handleSubmitProof() {
+    if (!user || !proofUrl) return;
     setSubmitting(true);
 
-    // Mark as pending in DB
     const res = await fetch('/api/users/upgrade', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payment_proof_url: 'via-whatsapp' }),
+      body: JSON.stringify({ payment_proof_url: proofUrl }),
     });
-    const data = await res.json();
+    
     if (res.ok) {
+      await alert.success('Berhasil', 'Bukti transfer berhasil dikirim. Admin akan memverifikasi pembayaran Anda.');
       await refreshUser();
-      setMessage({ type: 'success', text: data.message });
-      // Open WhatsApp
-      const waLink = createWhatsAppUpgradeMessage(user.name, user.email);
-      window.open(waLink, '_blank');
     } else {
-      setMessage({ type: 'error', text: data.error || 'Gagal submit' });
+      const data = await res.json();
+      await alert.error('Terjadi Kesalahan', data.error || 'Gagal submit bukti transfer. Silakan coba lagi.');
     }
     setSubmitting(false);
   }
@@ -130,13 +120,15 @@ export default function UpgradePage() {
             <p className="text-xs text-gray-500">{settings.description}</p>
           )}
           {settings.qris_image && (
-            <div className="mt-3 flex flex-col items-center">
-              <p className="text-sm font-semibold text-gray-700 mb-2">Scan QRIS</p>
-              <img
-                src={settings.qris_image}
-                alt="QRIS"
-                className="w-44 h-44 object-contain rounded-xl border border-gray-200"
-              />
+            <div className="mt-5 flex flex-col items-center">
+              <div className="w-full bg-white p-4 rounded-3xl border-2 border-gray-100 shadow-sm flex items-center justify-center">
+                <img
+                  src={settings.qris_image}
+                  alt="QRIS"
+                  className="w-full max-w-[280px] h-auto object-contain rounded-2xl"
+                />
+              </div>
+              <p className="text-sm font-bold text-gray-700 mt-4 mb-2">Scan QRIS di atas ☝️</p>
             </div>
           )}
         </Card>
@@ -151,23 +143,37 @@ export default function UpgradePage() {
           </ol>
         </Card>
 
-        {message && (
-          <div className="mb-4">
-            <StatusMessage type={message.type} message={message.text} />
+        {!showUpload ? (
+          <div className="flex flex-col gap-3">
+            <Button onClick={() => setShowUpload(true)} fullWidth size="lg">
+              ✅ Saya Sudah Bayar
+            </Button>
           </div>
+        ) : (
+          <Card className="mb-4 border-2 border-green-100 shadow-sm">
+            <h3 className="font-bold text-foreground mb-3 text-lg">Upload Bukti Transfer</h3>
+            <ImageUpload 
+              value={proofUrl} 
+              onChange={setProofUrl} 
+              label="Bukti Pembayaran (Wajib)"
+              placeholder="Pilih atau seret resi ke sini"
+            />
+            <div className="mt-5 flex flex-col gap-3">
+              <Button
+                onClick={handleSubmitProof}
+                loading={submitting}
+                fullWidth
+                size="lg"
+                disabled={!proofUrl}
+              >
+                Kirim Bukti TF
+              </Button>
+              <Button variant="secondary" onClick={() => setShowUpload(false)} fullWidth>
+                Batal
+              </Button>
+            </div>
+          </Card>
         )}
-
-        <Button
-          onClick={handleSendWhatsApp}
-          loading={submitting}
-          fullWidth
-          size="lg"
-        >
-          💬 Kirim Bukti TF ke Admin WhatsApp
-        </Button>
-        <p className="text-xs text-center text-gray-400 mt-2">
-          Akan membuka WhatsApp ke {settings.whatsapp_admin || '085882846665'}
-        </p>
       </div>
     </div>
   );

@@ -2,20 +2,25 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import Header from '@/components/Header';
 import Button from '@/components/Button';
 import Input from '@/components/shared/Input';
-import StatusMessage from '@/components/StatusMessage';
 import Card from '@/components/Card';
+import AvatarUpload from '@/components/AvatarUpload';
+import { useAlert } from '@/context/AlertContext';
 import { getInitials } from '@/utils/helpers';
+import { Sparkles, Edit2, LogOut, CheckCircle, Mail, Phone, Clock } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: user?.name || '', whatsapp: user?.whatsapp || '' });
+  const [form, setForm] = useState({ 
+    name: user?.name || '', 
+    whatsapp: user?.whatsapp || '',
+    profile_image: user?.profile_image || null as string | null
+  });
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const alert = useAlert();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -23,20 +28,31 @@ export default function ProfilePage() {
 
   async function handleSave() {
     setSaving(true);
-    const res = await fetch('/api/users', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      await refreshUser();
-      setMessage({ type: 'success', text: 'Profil berhasil diperbarui!' });
-      setEditing(false);
-    } else {
-      setMessage({ type: 'error', text: data.error || 'Gagal menyimpan' });
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          whatsapp: form.whatsapp,
+          profile_image: form.profile_image
+        }),
+      });
+
+      if (res.ok) {
+        await refreshUser();
+        await alert.success('Berhasil', 'Foto profil berhasil diperbarui');
+        setEditing(false);
+      } else {
+        const data = await res.json();
+        await alert.error('Gagal', data.error || 'Foto profil gagal diperbarui');
+      }
+    } catch (err) {
+      console.error('Update Profile Error:', err);
+      await alert.error('Gagal', 'Terjadi kesalahan sistem');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleLogout() {
@@ -45,112 +61,152 @@ export default function ProfilePage() {
   }
 
   const proStatusLabels = {
-    free: { label: 'Gratis', class: 'bg-gray-100 text-gray-600' },
-    pending: { label: 'Menunggu Verifikasi', class: 'bg-yellow-100 text-yellow-700' },
-    approved: { label: 'Pro Organizer', class: 'bg-green-100 text-green-700' },
+    free: { label: 'Plan Gratis', class: 'bg-muted text-muted-foreground', icon: Clock },
+    pending: { label: 'Menunggu Verifikasi', class: 'bg-orange-100 text-orange-700', icon: Clock },
+    approved: { label: 'Pro Organizer', class: 'bg-green-100 text-green-700', icon: CheckCircle },
   };
   const proStatus = user ? proStatusLabels[user.pro_status] : proStatusLabels.free;
+  const StatusIcon = proStatus.icon;
+
+  const profileImageUrl = user?.profile_image ? `${user.profile_image}?t=${new Date(user.updated_at || Date.now()).getTime()}` : null;
 
   return (
-    <div>
+    <div className="pb-28 animate-in-slide-up">
       <Header title="👤 Profil Saya" />
-      <div className="px-4 py-6">
-        {/* Avatar & Name */}
+      {/* Cover background */}
+      <div className="h-32 bg-primary w-full rounded-b-[2rem] absolute top-0 left-0 z-0 opacity-80" />
+      
+      <div className="px-5 pt-16 relative z-10 max-w-md mx-auto">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-2xl font-black text-white mb-3">
-            {user ? getInitials(user.name) : '?'}
+          <div className="w-24 h-24 bg-card rounded-3xl shadow-soft flex items-center justify-center p-1.5 mb-4 border border-card/40">
+            {editing && form.profile_image ? (
+              <img src={form.profile_image} alt="Preview" className="w-full h-full object-cover rounded-[1.25rem]" />
+            ) : profileImageUrl ? (
+              <img src={profileImageUrl} alt={user?.name} className="w-full h-full object-cover rounded-[1.25rem]" />
+            ) : (
+             <div className="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-600 rounded-[1.25rem] flex items-center justify-center text-3xl font-black text-white">
+              {user ? getInitials(user.name) : '?'}
+             </div>
+            )}
           </div>
-          <h2 className="text-xl font-bold text-gray-800">{user?.name}</h2>
-          <p className="text-sm text-gray-500">{user?.email}</p>
-          <span className={`mt-2 text-xs font-semibold px-3 py-1 rounded-full ${proStatus.class}`}>
+          <h2 className="text-2xl font-black text-foreground">{user?.name}</h2>
+          <span className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 ${proStatus.class}`}>
+            <StatusIcon className="w-3.5 h-3.5" />
             {proStatus.label}
           </span>
         </div>
 
-        {message && (
-          <div className="mb-4">
-            <StatusMessage type={message.type} message={message.text} />
-          </div>
-        )}
-
-        {/* Edit Form */}
-        <Card className="mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-gray-800">Informasi Akun</h3>
-            {!editing && (
-              <button
-                onClick={() => {
-                  setEditing(true);
-                  setForm({ name: user?.name || '', whatsapp: user?.whatsapp || '' });
-                }}
-                className="text-sm text-blue-600 font-semibold"
-              >
-                Edit
-              </button>
-            )}
-          </div>
-
-          {editing ? (
-            <div className="flex flex-col gap-3">
-              <Input
-                label="Nama Lengkap"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                required
-              />
-              <Input
-                label="Nomor WhatsApp"
-                name="whatsapp"
-                type="tel"
-                value={form.whatsapp}
-                onChange={handleChange}
-                required
-              />
-              <div className="flex gap-2 mt-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => setEditing(false)}
-                  className="flex-1"
+        <div className="space-y-4">
+          <Card padding={false} className="overflow-hidden">
+            <div className="bg-muted/30 px-5 py-4 flex items-center justify-between border-b border-border/50">
+              <h3 className="font-bold text-foreground">Detail Akun</h3>
+              {!editing && (
+                <button
+                  onClick={() => {
+                    setEditing(true);
+                    setForm({ 
+                      name: user?.name || '', 
+                      whatsapp: user?.whatsapp || '',
+                      profile_image: user?.profile_image || null
+                    });
+                  }}
+                  className="p-1.5 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-colors"
                 >
-                  Batal
-                </Button>
-                <Button onClick={handleSave} loading={saving} className="flex-1">
-                  Simpan
-                </Button>
-              </div>
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-gray-500">Email</p>
-                <p className="font-medium text-gray-800">{user?.email}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">WhatsApp</p>
-                <p className="font-medium text-gray-800">{user?.whatsapp}</p>
-              </div>
+
+            <div className="p-5">
+              {editing ? (
+                <div className="flex flex-col gap-6 items-center">
+                  <AvatarUpload 
+                    value={form.profile_image} 
+                    onUploadSuccess={(url) => {
+                      setForm(p => ({ ...p, profile_image: url }));
+                      // Auto-save or wait for Save button? 
+                      // The user asked for "instant everywhere", 
+                      // but they still have a "Simpan" button for Name/WA.
+                      // I'll keep the button flow but the image URL is now in state.
+                    }} 
+                  />
+                  <div className="w-full space-y-4">
+                    <Input
+                      label="Nama Lengkap"
+                      name="name"
+                      value={form.name}
+                      onChange={handleChange}
+                      required
+                    />
+                    <Input
+                      label="Nomor WhatsApp"
+                      name="whatsapp"
+                      type="tel"
+                      value={form.whatsapp}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-3 mt-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setEditing(false)}
+                      className="flex-1"
+                    >
+                      Batal
+                    </Button>
+                    <Button onClick={handleSave} loading={saving} className="flex-1">
+                      Simpan
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex gap-3 items-center">
+                    <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
+                      <Mail className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Email</p>
+                      <p className="font-medium text-foreground">{user?.email}</p>
+                    </div>
+                  </div>
+                  <div className="w-full h-px bg-border/40" />
+                  <div className="flex gap-3 items-center">
+                    <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
+                      <Phone className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">WhatsApp</p>
+                      <p className="font-medium text-foreground">{user?.whatsapp || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+          </Card>
+
+          {user?.pro_status === 'free' && (
+            <button
+              onClick={() => router.push('/organizer/upgrade')}
+              className="w-full bg-gradient-to-r from-orange-400 to-rose-500 rounded-[1.5rem] p-5 flex items-center gap-4 active:scale-[0.98] transition-transform shadow-soft relative overflow-hidden text-left"
+            >
+              <div className="absolute -top-10 -right-10 p-4 opacity-10"><Sparkles className="w-32 h-32 text-white"/></div>
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shrink-0 backdrop-blur-sm z-10">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <div className="z-10">
+                <p className="font-extrabold text-white text-base">Gabung Pro Organizer</p>
+                <p className="text-orange-100 text-xs font-medium mt-0.5">Mulai buat event pertama kamu!</p>
+              </div>
+            </button>
           )}
-        </Card>
 
-        {/* Upgrade to Organizer */}
-        {user?.pro_status === 'free' && (
-          <button
-            onClick={() => router.push('/upgrade')}
-            className="w-full bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 flex items-center gap-3 mb-4"
-          >
-            <span className="text-3xl">⭐</span>
-            <div className="text-left">
-              <p className="font-bold text-white text-sm">Upgrade ke Organizer Pro</p>
-              <p className="text-orange-100 text-xs">Buat dan kelola event Anda sendiri</p>
-            </div>
-          </button>
-        )}
-
-        <Button variant="danger" fullWidth onClick={handleLogout}>
-          🚪 Keluar
-        </Button>
+          <Button variant="danger" fullWidth onClick={handleLogout} className="mt-2" size="lg">
+            <LogOut className="w-5 h-5" />
+            Keluar
+          </Button>
+        </div>
       </div>
     </div>
   );

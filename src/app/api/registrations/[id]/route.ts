@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
 import { generateTicketCode, generateQRToken } from '@/lib/auth';
+import { createNotification } from '@/lib/notifications';
 
 // Approve or reject a registration (organizer/admin)
 export async function PUT(
@@ -45,8 +46,8 @@ export async function PUT(
     }
 
     if (action === 'approve') {
-      // Update registration
-      await supabase
+      // 1. Update registration
+      const { error: regUpdateError } = await supabase
         .from('event_registrations')
         .update({
           approval_status: 'approved',
@@ -56,40 +57,82 @@ export async function PUT(
         })
         .eq('id', id);
 
-      // Generate ticket
-      const ticket_code = generateTicketCode();
-      const qr_token = generateQRToken();
-      const { data: ticket, error: ticketError } = await supabase
-        .from('tickets')
-        .insert({
-          user_id: registration.user_id,
-          event_id: registration.event_id,
-          registration_id: id,
-          ticket_code,
-          qr_token,
-          status: 'active',
-        })
-        .select()
-        .single();
+      if (regUpdateError) {
+        console.error('Registration Update Error:', regUpdateError);
+        return NextResponse.json({ 
+          error: 'Gagal memperbarui status pendaftaran', 
+          details: regUpdateError.message 
+        }, { status: 500 });
+      }
 
-      if (ticketError) {
-        return NextResponse.json({ error: 'Gagal membuat tiket' }, { status: 500 });
+      // 2. Generate ticket (if doesn't exist yet)
+      const { data: existingTicket } = await supabase
+        .from('tickets')
+        .select('id')
+        .eq('registration_id', id)
+        .maybeSingle();
+
+      if (!existingTicket) {
+        const ticket_code = generateTicketCode();
+        const qr_token = generateQRToken();
+        const { data: ticket, error: ticketError } = await supabase
+          .from('tickets')
+          .insert({
+            user_id: registration.user_id,
+            event_id: registration.event_id,
+            registration_id: id,
+            ticket_code,
+            qr_token,
+            status: 'active',
+          })
+          .select()
+          .single();
+
+        if (ticketError) {
+          console.error('Ticket Creation Error:', ticketError);
+          return NextResponse.json({ error: 'Gagal membuat tiket' }, { status: 500 });
+        }
+
+        // 3. Notify user
+        await createNotification(
+          registration.user_id,
+          'approval_accepted',
+          `Pendaftaran tiket Anda untuk event telah disetujui!`,
+          `/tickets/${ticket.id}`
+        );
+
+        return NextResponse.json({
+          success: true,
+          message: 'Pendaftaran disetujui, tiket sudah dibuat',
+          ticket,
+        });
       }
 
       return NextResponse.json({
         success: true,
-        message: 'Pendaftaran disetujui, tiket sudah dibuat',
-        ticket,
+        message: 'Pendaftaran disetujui, tiket sudah ada',
       });
     } else {
       // Reject
-      await supabase
+      const { error: rejectError } = await supabase
         .from('event_registrations')
         .update({
           approval_status: 'rejected',
           payment_status: payment_status || 'ditolak',
         })
         .eq('id', id);
+
+      if (rejectError) {
+        console.error('Registration Reject Error:', rejectError);
+        return NextResponse.json({ error: 'Gagal menolak pendaftaran' }, { status: 500 });
+      }
+
+      await createNotification(
+        registration.user_id,
+        'approval_rejected',
+        `Maaf, pendaftaran tiket event Anda ditolak.`,
+        `/events/${registration.event_id}`
+      );
 
       return NextResponse.json({ success: true, message: 'Pendaftaran ditolak' });
     }

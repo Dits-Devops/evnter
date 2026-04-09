@@ -6,8 +6,13 @@ import { formatDate, formatTime, formatPrice } from '@/utils/helpers';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import Skeleton, { EventSkeleton } from '@/components/Skeleton';
 import StatusMessage from '@/components/StatusMessage';
 import Card from '@/components/Card';
+import ImageUpload from '@/components/ImageUpload';
+import { useAlert } from '@/context/AlertContext';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -15,54 +20,132 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [registered, setRegistered] = useState(false);
+  const [paymentProof, setPaymentProof] = useState<string | null>(null);
+  const [registrationObj, setRegistrationObj] = useState<any>(null);
+  const alert = useAlert();
+  const { user } = useAuth();
 
   useEffect(() => {
-    fetchEvent();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]);
+    fetchData();
 
-  async function fetchEvent() {
-    const res = await fetch(`/api/events/${params.id}`);
-    if (res.ok) {
-      const data = await res.json();
+    // Subscribe to REALTIME status updates
+    let channel: any;
+    if (user) {
+      channel = supabase
+        .channel(`status_sync_${params.id}_${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'event_registrations',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchData();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'tickets',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchData();
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id, user?.id]);
+
+  async function fetchData() {
+    // Fetch Event
+    const eventRes = await fetch(`/api/events/${params.id}?t=${Date.now()}`);
+    if (eventRes.ok) {
+      const data = await eventRes.json();
       setEvent(data.event);
+    }
+    
+    // Fetch User's Registration for this specific event
+    if (user) {
+      const regRes = await fetch(`/api/registrations?t=${Date.now()}`);
+      if (regRes.ok) {
+        const regData = await regRes.json();
+        const existing = regData.registrations.find((r: any) => r.event_id === params.id);
+        setRegistrationObj(existing || null);
+      }
     }
     setLoading(false);
   }
 
-  async function handleRegister() {
-    setRegistering(true);
-    setMessage(null);
+  const isFree = !event || !event.price || event.price === 0;
 
-    // Try approval-based registration first
-    const res = await fetch('/api/registrations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: params.id }),
-    });
-    const data = await res.json();
-
-    if (res.ok) {
-      if (data.mode === 'direct' && data.ticket) {
-        // Fallback: ticket created directly
-        router.push(`/tickets/success?ticket_id=${data.ticket.id}`);
-      } else {
-        // Pending approval
-        setRegistered(true);
-        setMessage({
-          type: 'success',
-          text: 'Pendaftaran berhasil! Menunggu persetujuan organizer.',
-        });
+  async function handleActionClick() {
+    // If ALREADY approved, navigate to Ticket
+    if (registrationObj?.approval_status === 'approved') {
+      await alert.success('Berhasil', 'Tiket kamu sudah tersedia');
+      
+      const ticketsRes = await fetch(`/api/tickets?t=${Date.now()}`);
+      if (ticketsRes.ok) {
+        const ticketsData = await ticketsRes.json();
+        const tkt = ticketsData.tickets.find((t: any) => t.event_id === params.id);
+        if (tkt) {
+          router.push(`/tickets/${tkt.id}`);
+          return;
+        }
       }
-    } else {
-      setMessage({ type: 'error', text: data.error || 'Gagal mendaftar' });
+      return;
     }
-    setRegistering(false);
+
+    // Default: Start Registration
+    handleRegister();
   }
 
-  if (loading) return <LoadingSpinner size="lg" />;
+  async function handleRegister() {
+    if (!user) return router.push('/login');
+    if (!event) return;
+
+    setRegistering(true);
+    // Optimistic UI: Set a temporary registration object so the button changes immediately
+    setRegistrationObj({ approval_status: 'pending_approval' });
+
+    try {
+      const res = await fetch('/api/registrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          event_id: event.id,
+          payment_proof_url: paymentProof 
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        // Realtime will handle the refresh, but we set it here too for safety
+        setRegistrationObj(data.registration);
+        alert.success('Berhasil', 'Pendaftaran kamu sedang diproses');
+      } else {
+        // Rollback optimistic state
+        setRegistrationObj(null);
+        alert.error('Gagal', data.error || 'Terjadi kesalahan');
+      }
+    } catch (err) {
+      setRegistrationObj(null);
+      alert.error('Gagal', 'Gagal menghubungi server');
+    } finally {
+      setRegistering(false);
+    }
+  }
+
+  if (loading) return <EventSkeleton />;
   if (!event) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6">
@@ -72,8 +155,7 @@ export default function EventDetailPage() {
     );
   }
 
-  const isFree = !event.price || event.price === 0;
-  const price = formatPrice(event.price);
+  const price = formatPrice(event.price || 0);
 
   return (
     <div>
@@ -137,31 +219,54 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Payment info for paid events */}
-          {!isFree && event.status === 'published' && !registered && (
-            <PaymentInfoCard />
+          {/* Payment info for paid events ONLY if not registered yet */}
+          {!isFree && event.status === 'published' && !registrationObj && (
+            <>
+              <PaymentInfoCard event={event} />
+              <Card className="mb-4">
+                <h3 className="font-bold text-gray-800 mb-3">Upload Bukti Transfer</h3>
+                <ImageUpload
+                  label="Bukti Pembayaran (Wajib)"
+                  value={paymentProof}
+                  onChange={(url) => setPaymentProof(url)}
+                  placeholder="Pilih atau seret struk ke sini"
+                />
+              </Card>
+            </>
           )}
 
-          {message && (
-            <div className="mb-4">
-              <StatusMessage type={message.type} message={message.text} />
+          {event.status === 'published' && (
+            <div className="space-y-3 mt-8">
+              {registrationObj?.approval_status === 'pending_approval' ? (
+                <>
+                  <Button disabled fullWidth size="lg" className="!bg-amber-500 hover:!bg-amber-600 !text-white opacity-100 disabled:opacity-100 shadow-amber-500/30">
+                    ⏳ Menunggu Tiket
+                  </Button>
+                  <p className="text-center text-xs font-semibold text-gray-500">
+                    Pendaftaran kamu sedang menunggu persetujuan organizer.
+                  </p>
+                </>
+              ) : registrationObj?.approval_status === 'rejected' ? (
+                <Button disabled fullWidth size="lg" variant="danger">
+                  ❌ Pendaftaran Ditolak
+                </Button>
+              ) : registrationObj?.approval_status === 'approved' ? (
+                <Button onClick={handleActionClick} fullWidth size="lg" className="!bg-emerald-500 hover:!bg-emerald-600 !text-white shadow-emerald-500/30">
+                  🎟️ Lihat Tiket
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={handleActionClick} loading={registering} fullWidth size="lg">
+                    {isFree ? '🎟️ Dapatkan Tiket' : `🎟️ Dapatkan Tiket`}
+                  </Button>
+                  {isFree && (
+                    <p className="text-center text-xs font-semibold text-gray-500">
+                      Organizer akan melakukan verifikasi maksimal 1x24 jam
+                    </p>
+                  )}
+                </>
+              )}
             </div>
-          )}
-
-          {registered ? (
-            <Card className="text-center py-4 bg-green-50">
-              <p className="text-3xl mb-2">⏳</p>
-              <p className="font-bold text-green-800">Menunggu Persetujuan</p>
-              <p className="text-sm text-green-700 mt-1">
-                Organizer akan segera meninjau pendaftaran Anda
-              </p>
-            </Card>
-          ) : (
-            event.status === 'published' && (
-              <Button onClick={handleRegister} loading={registering} fullWidth size="lg">
-                {isFree ? '🎟️ Daftar Sekarang — Gratis' : `🎟️ Daftar — ${price}`}
-              </Button>
-            )
           )}
         </div>
       </div>
@@ -169,51 +274,42 @@ export default function EventDetailPage() {
   );
 }
 
-function PaymentInfoCard() {
-  const [settings, setSettings] = useState<{
-    payment_name?: string;
-    account_number?: string;
-    account_name?: string;
-    qris_image?: string;
-    whatsapp_admin?: string;
-    description?: string;
-  } | null>(null);
-
-  useEffect(() => {
-    fetch('/api/admin/settings')
-      .then((r) => r.json())
-      .then((d) => setSettings(d.settings));
-  }, []);
-
-  if (!settings) return null;
+function PaymentInfoCard({ event }: { event: Event }) {
+  if (!event.metode_pembayaran) {
+    return (
+      <Card className="mb-4 bg-orange-50 border border-orange-100">
+         <p className="text-sm text-orange-700">Metode pembayaran belum diatur oleh Organizer.</p>
+      </Card>
+    );
+  }
 
   return (
     <Card className="mb-4 bg-blue-50 border border-blue-100">
       <h3 className="font-bold text-blue-800 mb-2">💳 Cara Pembayaran</h3>
-      <p className="text-sm text-blue-700 font-semibold">{settings.payment_name}</p>
-      <p className="text-sm text-blue-700">No: {settings.account_number}</p>
-      <p className="text-sm text-blue-700">Atas nama: {settings.account_name}</p>
-      {settings.description && (
-        <p className="text-xs text-blue-600 mt-1">{settings.description}</p>
+      <p className="text-sm text-blue-700 font-semibold">{event.metode_pembayaran}</p>
+      <p className="text-sm text-blue-700">No: {event.nomor_rekening}</p>
+      <p className="text-sm text-blue-700">Atas nama: {event.nama_pemilik}</p>
+      {event.catatan_pembayaran && (
+        <p className="text-xs text-blue-600 mt-1 italic">{event.catatan_pembayaran}</p>
       )}
-      {settings.qris_image && (
+      {event.qris_image && (
         <div className="mt-3 flex flex-col items-center">
           <p className="text-xs font-semibold text-blue-700 mb-1">Scan QRIS</p>
           <img
-            src={settings.qris_image}
+            src={event.qris_image}
             alt="QRIS"
             className="w-40 h-40 object-contain rounded-xl border border-blue-200"
           />
         </div>
       )}
-      {settings.whatsapp_admin && (
+      {event.organizer?.whatsapp && (
         <a
-          href={`https://wa.me/62${settings.whatsapp_admin.replace(/^0/, '')}`}
+          href={`https://wa.me/62${event.organizer.whatsapp.replace(/^0/, '')}`}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-3 flex items-center gap-2 text-sm text-green-700 font-semibold"
         >
-          💬 Konfirmasi ke Admin WhatsApp
+          💬 Konfirmasi ke Organizer
         </a>
       )}
     </Card>

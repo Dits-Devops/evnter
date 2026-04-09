@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const supabase = createServerClient();
     const { data, error } = await supabase
-      .from('payment_settings')
+      .from('pro_upgrade_payment_settings')
       .select('*')
       .order('updated_at', { ascending: false })
       .limit(1)
@@ -50,7 +50,7 @@ export async function PUT(request: NextRequest) {
 
     // Try to update existing record first
     const { data: existing } = await supabase
-      .from('payment_settings')
+      .from('pro_upgrade_payment_settings')
       .select('id')
       .limit(1)
       .single();
@@ -68,14 +68,14 @@ export async function PUT(request: NextRequest) {
     let result;
     if (existing?.id) {
       result = await supabase
-        .from('payment_settings')
+        .from('pro_upgrade_payment_settings')
         .update(payload)
         .eq('id', existing.id)
         .select()
         .single();
     } else {
       result = await supabase
-        .from('payment_settings')
+        .from('pro_upgrade_payment_settings')
         .insert(payload)
         .select()
         .single();

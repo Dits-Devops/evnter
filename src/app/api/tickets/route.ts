@@ -4,6 +4,8 @@ import { verifyToken } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
 import { generateTicketCode, generateQRToken } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -21,7 +23,11 @@ export async function GET(request: NextRequest) {
     if (eventId && (user.role === 'organizer' || user.role === 'admin')) {
       const { data, error } = await supabase
         .from('tickets')
-        .select(`*, user:users(id, name, whatsapp), event:events(id, title, date, location)`)
+        .select(`
+          *, 
+          user:users!tickets_user_id_fkey(id, name, whatsapp), 
+          event:events(id, title, date, location)
+        `)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false });
 

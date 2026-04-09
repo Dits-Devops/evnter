@@ -50,7 +50,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, date, location, poster_url, price } = body;
+    const { 
+      title, description, date, location, poster_url, price,
+      metode_pembayaran, nomor_rekening, nama_pemilik,
+      qris_image, catatan_pembayaran, max_peserta
+    } = body;
 
     if (!title || !date || !location) {
       return NextResponse.json({ error: 'Title, tanggal, dan lokasi wajib diisi' }, { status: 400 });
@@ -68,6 +72,12 @@ export async function POST(request: NextRequest) {
         price: price || 0,
         organizer_id: user.id,
         status: 'published',
+        metode_pembayaran,
+        nomor_rekening,
+        nama_pemilik,
+        qris_image,
+        catatan_pembayaran,
+        max_peserta: max_peserta ? parseInt(max_peserta) : 0,
       })
       .select()
       .single();

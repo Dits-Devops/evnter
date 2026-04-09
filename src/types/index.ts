@@ -31,6 +31,14 @@ export interface Event {
   organizer?: User;
   status: EventStatus;
   ticket_count?: number;
+  // NEW PAYMENT AND REGISTRATION FIELDS
+  metode_pembayaran?: string;
+  nomor_rekening?: string;
+  nama_pemilik?: string;
+  qris_image?: string;
+  catatan_pembayaran?: string;
+  max_peserta?: number;
+  // METADATA
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +49,7 @@ export interface EventRegistration {
   event_id: string;
   approval_status: RegistrationApprovalStatus;
   payment_status: PaymentStatus;
+  payment_proof_url?: string;
   created_at: string;
   approved_at?: string;
   approved_by?: string;
@@ -62,7 +71,7 @@ export interface Ticket {
   event?: Event;
 }
 
-export interface PaymentSettings {
+export interface ProUpgradePaymentSettings {
   id: string;
   payment_name: string;
   account_name: string;
@@ -73,6 +82,16 @@ export interface PaymentSettings {
   updated_at: string;
 }
 
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'schedule_change' | 'approval_accepted' | 'approval_rejected' | 'general';
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  action_url?: string;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -80,6 +99,7 @@ export interface AuthUser {
   role: UserRole;
   pro_status: ProStatus;
   whatsapp: string;
+  profile_image?: string;
 }
 
 export interface ApiResponse<T = unknown> {
