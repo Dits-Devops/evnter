@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState, useCallback } from 'react';
-import { ImagePlus, Loader2, X, UploadCloud } from 'lucide-react';
+import Image from 'next/image';
+import { Loader2, X, UploadCloud } from 'lucide-react';
 import Button from './Button';
 
 interface ImageUploadProps {
@@ -86,11 +87,12 @@ export default function ImageUpload({
       )}
 
       {value ? (
-        <div className="relative rounded-[1.5rem] overflow-hidden group shadow-soft">
-          <img
+        <div className="relative rounded-[1.5rem] h-48 overflow-hidden group shadow-soft">
+          <Image
             src={value}
             alt="Preview"
-            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
           {uploading && (
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2">

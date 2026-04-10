@@ -6,13 +6,23 @@ import Input from '@/components/shared/Input';
 import Button from '@/components/Button';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAlert } from '@/context/AlertContext';
-import { Megaphone, Users, History } from 'lucide-react';
+import { Megaphone, History } from 'lucide-react';
 import { formatDate, formatTime } from '@/utils/helpers';
+
+interface Broadcast {
+  id: string;
+  title: string;
+  message: string;
+  target_role: string;
+  type: string;
+  created_at: string;
+  author?: { name: string };
+}
 
 export default function AdminBroadcastPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [broadcasts, setBroadcasts] = useState<any[]>([]);
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const alert = useAlert();
 
   const [form, setForm] = useState({
@@ -71,7 +81,7 @@ export default function AdminBroadcastPage() {
       } else {
         await alert.error('Gagal', data.error || 'Gagal mengirim broadcast');
       }
-    } catch (error) {
+    } catch {
       await alert.error('Gagal', 'Terjadi kesalahan sistem');
     } finally {
       setSending(false);

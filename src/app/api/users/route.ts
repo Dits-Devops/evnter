@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest) {
     // We optionally extract profile_image and pro_payment_proof_url
     const { name, whatsapp, profile_image, pro_payment_proof_url } = body;
     
-    const updatePayload: Record<string, any> = { 
+    const updatePayload: Record<string, string | null | undefined> = { 
       name, 
       whatsapp, 
       updated_at: new Date().toISOString() 

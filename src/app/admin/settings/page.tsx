@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
 import Input from '@/components/shared/Input';
@@ -136,11 +137,14 @@ export default function AdminSettingsPage() {
             {settings.qris_image && (
               <div className="mt-3 flex flex-col items-center">
                 <p className="text-sm font-semibold text-gray-700 mb-2">QRIS</p>
-                <img
-                  src={settings.qris_image}
-                  alt="QRIS"
-                  className="w-48 h-48 object-contain rounded-xl border border-gray-200"
-                />
+                <div className="relative w-48 h-48 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                  <Image
+                    src={settings.qris_image}
+                    alt="QRIS"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
               </div>
             )}
           </Card>

@@ -1,15 +1,15 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Event } from '@/types';
-import { formatDate, formatPrice } from '@/utils/helpers';
+import { formatDate } from '@/utils/helpers';
 import Button from '@/components/Button';
-import LoadingSpinner from '@/components/LoadingSpinner';
 import Card from '@/components/Card';
 import { MyEventsListSkeleton } from '@/components/Skeleton';
-import { CalendarDays, MapPin, Settings, PauseCircle, PlayCircle, Trash2, Plus, AlertTriangle, Image as ImageIcon } from 'lucide-react';
+import { CalendarDays, Trash2, Plus, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 
 export default function MyEventsPage() {
   const { user } = useAuth();
@@ -103,17 +103,17 @@ export default function MyEventsPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {events.map((event) => {
-              const isFree = !event.price || event.price === 0;
               const isPublished = event.status === 'published';
               return (
                 <Card key={event.id} padding={false} className="overflow-hidden group flex">
                   {/* Small Square Poster */}
                   <div className="w-24 h-24 shrink-0 relative overflow-hidden">
                     {event.poster_url ? (
-                      <img
+                      <Image
                         src={event.poster_url}
                         alt={event.title}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        fill
+                        className="object-cover transition-transform group-hover:scale-105"
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-primary/20 flex items-center justify-center">

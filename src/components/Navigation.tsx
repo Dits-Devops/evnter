@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
-import { Home, Ticket, User, Calendar, PlusCircle, ScanLine, LayoutDashboard, Users, CreditCard, Bell } from 'lucide-react';
+import { Home, Ticket, User, Calendar, PlusCircle, ScanLine, LayoutDashboard, Users, Bell } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface NavItem {
@@ -48,7 +49,7 @@ export default function Navigation() {
         .then(res => res.json())
         .then(data => {
           if (data.notifications) {
-            setHasUnread(data.notifications.some((n: any) => !n.is_read));
+            setHasUnread(data.notifications.some((n: { is_read: boolean }) => !n.is_read));
           }
         });
 
@@ -98,11 +99,12 @@ export default function Navigation() {
               }`}
             >
               {isProfileItem && user?.profile_image ? (
-                <div className={`w-7 h-7 rounded-full overflow-hidden border-2 ${isActive ? 'border-primary' : 'border-transparent'}`}>
-                   <img 
+                <div className={`w-7 h-7 rounded-full overflow-hidden border-2 relative ${isActive ? 'border-primary' : 'border-transparent'}`}>
+                   <Image 
                     src={profileImageUrl || '/default-avatar.png'} 
                     alt="Profile" 
-                    className="w-full h-full object-cover" 
+                    fill
+                    className="object-cover" 
                   />
                 </div>
               ) : (

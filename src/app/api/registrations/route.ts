@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
-import { generateTicketCode, generateQRToken } from '@/lib/auth';
 import { createNotification } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
@@ -65,7 +64,7 @@ export async function GET(request: NextRequest) {
     }
     
     return NextResponse.json({ registrations: data || [] });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[API Critical Error]:', err);
     return NextResponse.json({ 
       error: 'Terjadi kesalahan sistem', 
@@ -141,7 +140,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Anda sudah terdaftar di event ini' }, { status: 400 });
     }
 
-    const price = event.price || 0;
     const paymentStatus = payment_proof_url ? 'sudah_bayar' : 'belum_bayar'; // updated initially upon upload
 
     const { data: registration, error: regError } = await supabase
@@ -169,7 +167,7 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json({ success: true, registration, mode: 'pending' }, { status: 201 });
-  } catch (err: any) {
+  } catch (err) {
     console.error('Registration Critical Error:', err);
     return NextResponse.json({ error: 'Server error', details: err.message }, { status: 500 });
   }

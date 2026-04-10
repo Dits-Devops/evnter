@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Event } from '@/types';
 import { formatDate, truncateText, formatPrice } from '@/utils/helpers';
 import Card from './Card';
-import { CalendarDays, MapPin, Users } from 'lucide-react';
+import { CalendarDays, MapPin } from 'lucide-react';
 
 interface EventCardProps {
   event: Event;
@@ -19,11 +20,14 @@ export default function EventCard({ event, href }: EventCardProps) {
       <Card padding={false} className="overflow-hidden transition-all duration-300 rounded-2xl border-none shadow-sm hover:shadow-md">
         <div className="relative">
           {event.poster_url ? (
-            <img
-              src={event.poster_url}
-              alt={event.title}
-              className="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-300"
-            />
+            <div className="relative w-full h-36 overflow-hidden">
+              <Image
+                src={event.poster_url}
+                alt={event.title}
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            </div>
           ) : (
             <div className="w-full h-36 bg-gradient-to-br from-indigo-100 via-primary/10 to-purple-100 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
               <CalendarDays className="w-10 h-10 text-primary/30" />

@@ -1,13 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
-import { Event } from '@/types';
+import { Event, EventRegistration, Ticket } from '@/types';
 import { formatDate, formatTime, formatPrice } from '@/utils/helpers';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import Skeleton, { EventSkeleton } from '@/components/Skeleton';
-import StatusMessage from '@/components/StatusMessage';
 import Card from '@/components/Card';
 import ImageUpload from '@/components/ImageUpload';
 import { useAlert } from '@/context/AlertContext';
@@ -21,7 +19,7 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [paymentProof, setPaymentProof] = useState<string | null>(null);
-  const [registrationObj, setRegistrationObj] = useState<any>(null);
+  const [registrationObj, setRegistrationObj] = useState<EventRegistration | null>(null);
   const alert = useAlert();
   const { user } = useAuth();
 
@@ -29,7 +27,7 @@ export default function EventDetailPage() {
     fetchData();
 
     // Subscribe to REALTIME status updates
-    let channel: any;
+    let channel: { unsubscribe: () => void } | null = null;
     if (user) {
       channel = supabase
         .channel(`status_sync_${params.id}_${user.id}`)
@@ -79,7 +77,7 @@ export default function EventDetailPage() {
       const regRes = await fetch(`/api/registrations?t=${Date.now()}`);
       if (regRes.ok) {
         const regData = await regRes.json();
-        const existing = regData.registrations.find((r: any) => r.event_id === params.id);
+        const existing = regData.registrations.find((r: EventRegistration) => r.event_id === params.id);
         setRegistrationObj(existing || null);
       }
     }
@@ -96,7 +94,7 @@ export default function EventDetailPage() {
       const ticketsRes = await fetch(`/api/tickets?t=${Date.now()}`);
       if (ticketsRes.ok) {
         const ticketsData = await ticketsRes.json();
-        const tkt = ticketsData.tickets.find((t: any) => t.event_id === params.id);
+        const tkt = ticketsData.tickets.find((t: Ticket) => t.event_id === params.id);
         if (tkt) {
           router.push(`/tickets/${tkt.id}`);
           return;
@@ -137,7 +135,7 @@ export default function EventDetailPage() {
         setRegistrationObj(null);
         alert.error('Gagal', data.error || 'Terjadi kesalahan');
       }
-    } catch (err) {
+    } catch {
       setRegistrationObj(null);
       alert.error('Gagal', 'Gagal menghubungi server');
     } finally {
@@ -145,7 +143,13 @@ export default function EventDetailPage() {
     }
   }
 
-  if (loading) return <EventSkeleton />;
+  if (loading) return (
+    <div className="min-h-screen bg-gray-50 p-4 space-y-4">
+      <div className="h-56 bg-gray-200 animate-pulse rounded-2xl" />
+      <div className="h-8 bg-gray-200 animate-pulse w-3/4 rounded-lg" />
+      <div className="h-24 bg-gray-200 animate-pulse rounded-2xl" />
+    </div>
+  );
   if (!event) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6">
@@ -162,7 +166,9 @@ export default function EventDetailPage() {
       <Header title="" showBack />
       <div>
         {event.poster_url ? (
-          <img src={event.poster_url} alt={event.title} className="w-full h-56 object-cover" />
+          <div className="relative w-full h-56 overflow-hidden">
+            <Image src={event.poster_url} alt={event.title} fill className="object-cover" />
+          </div>
         ) : (
           <div className="w-full h-56 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
             <span className="text-7xl">🎪</span>
@@ -295,11 +301,14 @@ function PaymentInfoCard({ event }: { event: Event }) {
       {event.qris_image && (
         <div className="mt-3 flex flex-col items-center">
           <p className="text-xs font-semibold text-blue-700 mb-1">Scan QRIS</p>
-          <img
-            src={event.qris_image}
-            alt="QRIS"
-            className="w-40 h-40 object-contain rounded-xl border border-blue-200"
-          />
+          <div className="relative w-40 h-40 overflow-hidden rounded-xl border border-blue-200 bg-white">
+            <Image
+              src={event.qris_image}
+              alt="QRIS"
+              fill
+              className="object-contain"
+            />
+          </div>
         </div>
       )}
       {event.organizer?.whatsapp && (

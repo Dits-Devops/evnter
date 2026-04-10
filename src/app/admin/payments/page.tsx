@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Header from '@/components/Header';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
@@ -71,9 +72,14 @@ export default function AdminPaymentsPage() {
                 {p.pro_payment_proof_url && p.pro_payment_proof_url !== 'via-whatsapp' && (
                   <div className="mb-4 bg-muted/30 p-2 rounded-2xl border border-border/50">
                     <p className="text-xs font-semibold text-muted-foreground mb-2">📸 Bukti Transfer</p>
-                    <a href={p.pro_payment_proof_url} target="_blank" rel="noopener noreferrer">
-                      <img src={p.pro_payment_proof_url} alt="Bukti Pembayaran" className="w-full h-48 object-cover rounded-xl" />
-                    </a>
+                    <div className="relative w-full h-48 overflow-hidden rounded-xl bg-white shadow-sm border border-border/50">
+                      <Image 
+                        src={p.pro_payment_proof_url} 
+                        alt="Bukti Pembayaran" 
+                        fill 
+                        className="object-cover" 
+                      />
+                    </div>
                   </div>
                 )}
                 {p.pro_status === 'pending' && (

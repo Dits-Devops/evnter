@@ -8,9 +8,18 @@ import { Bell, Calendar, Info, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { formatDate } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
 
+interface Notification {
+  id: string;
+  user_id: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 export default function NotificationsPage() {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
@@ -80,7 +89,7 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {notifications.map((notif: any) => {
+            {notifications.map((notif) => {
               const isRead = notif.is_read;
               return (
                 <Card 

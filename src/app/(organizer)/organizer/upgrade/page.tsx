@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Header from '@/components/Header';
@@ -121,11 +122,12 @@ export default function UpgradePage() {
           )}
           {settings.qris_image && (
             <div className="mt-5 flex flex-col items-center">
-              <div className="w-full bg-white p-4 rounded-3xl border-2 border-gray-100 shadow-sm flex items-center justify-center">
-                <img
+              <div className="w-full bg-white p-4 rounded-3xl border-2 border-gray-100 shadow-sm flex items-center justify-center relative min-h-[200px]">
+                <Image
                   src={settings.qris_image}
                   alt="QRIS"
-                  className="w-full max-w-[280px] h-auto object-contain rounded-2xl"
+                  fill
+                  className="object-contain p-4"
                 />
               </div>
               <p className="text-sm font-bold text-gray-700 mt-4 mb-2">Scan QRIS di atas ☝️</p>

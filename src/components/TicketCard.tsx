@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { Ticket as TicketType } from '@/types';
 import { formatDate } from '@/utils/helpers';
-import { Ticket, Calendar, QrCode } from 'lucide-react';
+import { Calendar, QrCode } from 'lucide-react';
 import Card from './Card';
 
 interface TicketCardProps {

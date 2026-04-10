@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Event } from '@/types';
 import EventCard from '@/components/EventCard';
-import LoadingSpinner from '@/components/LoadingSpinner';
 import { EventListSkeleton } from '@/components/Skeleton';
 import { Search, Sparkles, Flame, Ticket, ChevronRight } from 'lucide-react';
 

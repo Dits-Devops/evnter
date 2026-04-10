@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Camera, Loader2, X, User } from 'lucide-react';
+import Image from 'next/image';
+import { Camera, Loader2, User } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
@@ -28,7 +29,7 @@ export default function AvatarUpload({
     if (value) setPreview(value);
   }, [value]);
 
-  const uploadImage = async (file: File) => {
+  const uploadImage = useCallback(async (file: File) => {
     if (!user) return;
 
     // 1. Validasi
@@ -53,7 +54,7 @@ export default function AvatarUpload({
       const filePath = `avatars/${fileName}`;
 
       // 2. Upload to Supabase Storage
-      const { data, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -70,14 +71,15 @@ export default function AvatarUpload({
       // 4. Callback
       onUploadSuccess(publicUrl);
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Upload error:', error);
-      alert.error('Upload Gagal', error.message || 'Terjadi kesalahan saat mengupload foto');
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan saat mengupload foto';
+      alert.error('Upload Gagal', errorMessage);
       setPreview(value || null); // Revert preview on error
     } finally {
       setUploading(false);
     }
-  };
+  }, [user, alert, value, onUploadSuccess]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -89,7 +91,7 @@ export default function AvatarUpload({
     setDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) uploadImage(file);
-  }, [user]);
+  }, [uploadImage]);
 
   return (
     <div 
@@ -104,10 +106,11 @@ export default function AvatarUpload({
         ${uploading ? 'opacity-50' : 'opacity-100'}
       `}>
         {preview ? (
-          <img 
+          <Image 
             src={preview} 
             alt="Avatar" 
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
           />
         ) : (
           <div className="w-full h-full bg-muted flex items-center justify-center">

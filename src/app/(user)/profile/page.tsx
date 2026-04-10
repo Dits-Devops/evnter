@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/Button';
@@ -8,6 +9,7 @@ import Card from '@/components/Card';
 import AvatarUpload from '@/components/AvatarUpload';
 import { useAlert } from '@/context/AlertContext';
 import { getInitials } from '@/utils/helpers';
+import Header from '@/components/Header';
 import { Sparkles, Edit2, LogOut, CheckCircle, Mail, Phone, Clock } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -47,8 +49,8 @@ export default function ProfilePage() {
         const data = await res.json();
         await alert.error('Gagal', data.error || 'Foto profil gagal diperbarui');
       }
-    } catch (err) {
-      console.error('Update Profile Error:', err);
+    } catch {
+      console.error('Update Profile Error');
       await alert.error('Gagal', 'Terjadi kesalahan sistem');
     } finally {
       setSaving(false);
@@ -80,9 +82,13 @@ export default function ProfilePage() {
         <div className="flex flex-col items-center mb-6">
           <div className="w-24 h-24 bg-card rounded-3xl shadow-soft flex items-center justify-center p-1.5 mb-4 border border-card/40">
             {editing && form.profile_image ? (
-              <img src={form.profile_image} alt="Preview" className="w-full h-full object-cover rounded-[1.25rem]" />
+              <div className="relative w-full h-full overflow-hidden rounded-[1.25rem]">
+                <Image src={form.profile_image} alt="Preview" fill className="object-cover" />
+              </div>
             ) : profileImageUrl ? (
-              <img src={profileImageUrl} alt={user?.name} className="w-full h-full object-cover rounded-[1.25rem]" />
+              <div className="relative w-full h-full overflow-hidden rounded-[1.25rem]">
+                <Image src={profileImageUrl} alt={user?.name || 'Profile'} fill className="object-cover" />
+              </div>
             ) : (
              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-600 rounded-[1.25rem] flex items-center justify-center text-3xl font-black text-white">
               {user ? getInitials(user.name) : '?'}

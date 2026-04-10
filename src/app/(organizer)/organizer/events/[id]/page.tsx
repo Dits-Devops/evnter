@@ -1,10 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { Event, Ticket, EventRegistration } from '@/types';
 import { formatDate, formatDateTime } from '@/utils/helpers';
 import Header from '@/components/Header';
-import LoadingSpinner from '@/components/LoadingSpinner';
 import { OrganizerEventSkeleton } from '@/components/Skeleton';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
@@ -58,7 +58,7 @@ export default function OrganizerEventPage() {
         let errData = {};
         try {
           errData = await regRes.json();
-        } catch (e) {
+        } catch {
           console.warn('[Organizer Debug] Could not parse error JSON');
         }
         console.error(`[Organizer Debug] API Error ${regRes.status} (${regRes.statusText}):`, errData);
@@ -452,11 +452,12 @@ export default function OrganizerEventPage() {
               </button>
             </div>
             <div className="p-4 bg-gray-50 flex-1 overflow-y-auto">
-              <a href={proofModal.payment_proof_url} target="_blank" rel="noopener noreferrer">
-                <img 
+              <a href={proofModal.payment_proof_url} target="_blank" rel="noopener noreferrer" className="relative block w-full aspect-square overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-100">
+                <Image 
                   src={proofModal.payment_proof_url} 
                   alt="Bukti Transfer" 
-                  className="w-full h-auto max-h-[50vh] object-contain rounded-2xl bg-white shadow-sm border border-gray-100"
+                  fill
+                  className="object-contain"
                 />
               </a>
               
