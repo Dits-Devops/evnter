@@ -1,10 +1,10 @@
 'use client';
 import { useRef, useState, useCallback, useEffect } from 'react';
-import Image from 'next/image';
-import { Camera, Loader2, User } from 'lucide-react';
+import { Camera, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
+import Avatar from '@/components/Avatar';
 
 interface AvatarUploadProps {
   value?: string | null;
@@ -105,18 +105,12 @@ export default function AvatarUpload({
         ${dragging ? 'border-primary ring-4 ring-primary/20 scale-105' : 'border-white shadow-xl'}
         ${uploading ? 'opacity-50' : 'opacity-100'}
       `}>
-        {preview ? (
-          <Image 
-            src={preview} 
-            alt="Avatar" 
-            fill
-            className="object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-muted flex items-center justify-center">
-            <User className="w-12 h-12 text-muted-foreground" />
-          </div>
-        )}
+        <Avatar 
+          src={preview} 
+          name={user?.name} 
+          size="xl" 
+          className="w-full h-full rounded-none" 
+        />
 
         {/* Overlay on hover */}
         <div 

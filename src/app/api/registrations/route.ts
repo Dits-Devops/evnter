@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         .from('event_registrations')
         .select(`
           *, 
-          user:users!event_registrations_user_id_fkey(id, name, whatsapp, email)
+          user:users!event_registrations_user_id_fkey(id, name, whatsapp, email, profile_image, updated_at)
         `)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false });

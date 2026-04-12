@@ -1,12 +1,12 @@
 'use client';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
 import { Home, Ticket, User, Calendar, PlusCircle, ScanLine, LayoutDashboard, Users, Bell } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getProfileImageUrl } from '@/utils/helpers';
+import Avatar from '@/components/Avatar';
 
 interface NavItem {
   href: string;
@@ -99,15 +99,13 @@ export default function Navigation() {
                 isActive ? 'text-primary scale-110' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {isProfileItem && user?.profile_image ? (
-                <div className={`w-7 h-7 rounded-full overflow-hidden border-2 relative ${isActive ? 'border-primary' : 'border-transparent'}`}>
-                   <Image 
-                    src={profileImageUrl || '/default-avatar.png'} 
-                    alt="Profile" 
-                    fill
-                    className="object-cover" 
-                  />
-                </div>
+              {isProfileItem ? (
+                <Avatar 
+                  src={profileImageUrl} 
+                  name={user?.name} 
+                  size="sm" 
+                  className={isActive ? 'border-2 border-primary' : 'border-2 border-transparent'} 
+                />
               ) : (
                 <div className="relative">
                   <Icon className={`w-6 h-6 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />

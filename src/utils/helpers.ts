@@ -1,5 +1,3 @@
-import { AuthUser } from '@/types';
-
 export function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString('id-ID', {
@@ -59,7 +57,7 @@ export function createWhatsAppUpgradeMessage(userName: string, userEmail: string
 /**
  * Generates a stable profile image URL with cache-busting timestamp
  */
-export function getProfileImageUrl(user: AuthUser | null): string | null {
+export function getProfileImageUrl(user?: { profile_image?: string | null, updated_at?: string | null } | null): string | null {
   if (!user || !user.profile_image) return null;
   
   // Use updated_at as timestamp, fallback to a 10s window stable timestamp if missing

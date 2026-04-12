@@ -1,14 +1,14 @@
 'use client';
 import { useState } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/Button';
 import Input from '@/components/shared/Input';
 import Card from '@/components/Card';
+import Avatar from '@/components/Avatar';
 import AvatarUpload from '@/components/AvatarUpload';
 import { useAlert } from '@/context/AlertContext';
-import { getInitials, getProfileImageUrl } from '@/utils/helpers';
+import { getProfileImageUrl } from '@/utils/helpers';
 import Header from '@/components/Header';
 import { Sparkles, Edit2, LogOut, CheckCircle, Mail, Phone, Clock } from 'lucide-react';
 
@@ -81,19 +81,11 @@ export default function ProfilePage() {
       <div className="px-5 pt-16 relative z-10 max-w-md mx-auto">
         <div className="flex flex-col items-center mb-6">
           <div className="w-24 h-24 bg-card rounded-3xl shadow-soft flex items-center justify-center p-1.5 mb-4 border border-card/40">
-            {editing && form.profile_image ? (
-              <div className="relative w-full h-full overflow-hidden rounded-[1.25rem]">
-                <Image src={form.profile_image} alt="Preview" fill className="object-cover" />
-              </div>
-            ) : profileImageUrl ? (
-              <div className="relative w-full h-full overflow-hidden rounded-[1.25rem]">
-                <Image src={profileImageUrl} alt={user?.name || 'Profile'} fill className="object-cover" />
-              </div>
-            ) : (
-             <div className="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-600 rounded-[1.25rem] flex items-center justify-center text-3xl font-black text-white">
-              {user ? getInitials(user.name) : '?'}
-             </div>
-            )}
+            <Avatar 
+              src={editing ? form.profile_image : profileImageUrl} 
+              name={user?.name} 
+              size="xl" 
+            />
           </div>
           <h2 className="text-2xl font-black text-foreground">{user?.name}</h2>
           <span className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 ${proStatus.class}`}>

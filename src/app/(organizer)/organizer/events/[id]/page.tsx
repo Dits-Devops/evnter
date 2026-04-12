@@ -3,11 +3,12 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { Event, Ticket, EventRegistration } from '@/types';
-import { formatDate, formatDateTime } from '@/utils/helpers';
+import { formatDate, formatDateTime, getProfileImageUrl } from '@/utils/helpers';
 import Header from '@/components/Header';
 import { OrganizerEventSkeleton } from '@/components/Skeleton';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
+import Avatar from '@/components/Avatar';
 import { useToast } from '@/context/ToastContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
@@ -357,9 +358,11 @@ export default function OrganizerEventPage() {
                 const ticket = tickets.find(t => t.registration_id === reg.id);
                 return (
                   <Card key={reg.id} className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0">
-                      {reg.user?.name?.charAt(0) || '?'}
-                    </div>
+                    <Avatar 
+                      src={getProfileImageUrl(reg.user)} 
+                      name={reg.user?.name} 
+                      size="md" 
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-800 truncate">{reg.user?.name || 'Peserta'}</p>
                       {ticket && <p className="text-xs text-gray-400 font-mono">{ticket.ticket_code}</p>}
@@ -393,9 +396,12 @@ export default function OrganizerEventPage() {
             ) : (
               checkedInTickets.map((ticket) => (
                 <Card key={ticket.id} className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0">
-                    {ticket.user?.name?.charAt(0) || '?'}
-                  </div>
+                  <Avatar 
+                    src={getProfileImageUrl(ticket.user)} 
+                    name={ticket.user?.name} 
+                    size="md" 
+                    fallbackClassName="from-green-400 to-teal-500"
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 truncate">{ticket.user?.name || 'Peserta'}</p>
                     <p className="text-xs text-gray-400 font-mono">{ticket.ticket_code}</p>
@@ -419,9 +425,12 @@ export default function OrganizerEventPage() {
             ) : (
               notCheckedIn.map((ticket) => (
                 <Card key={ticket.id} className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-gray-300 to-gray-400 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0">
-                    {ticket.user?.name?.charAt(0) || '?'}
-                  </div>
+                  <Avatar 
+                    src={getProfileImageUrl(ticket.user)} 
+                    name={ticket.user?.name} 
+                    size="md" 
+                    fallbackClassName="from-gray-300 to-gray-400"
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 truncate">{ticket.user?.name || 'Peserta'}</p>
                     <p className="text-xs text-gray-400 font-mono">{ticket.ticket_code}</p>
