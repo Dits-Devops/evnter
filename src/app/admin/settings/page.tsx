@@ -34,11 +34,11 @@ export default function AdminSettingsPage() {
   }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    setSettings((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setSettings((prev: Partial<PaymentSettings>) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setSettings((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setSettings((prev: Partial<PaymentSettings>) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -119,7 +119,7 @@ export default function AdminSettingsPage() {
               label="Upload Gambar QRIS"
               placeholder="Seret gambar QRIS ke sini atau klik untuk memilih"
               value={settings.qris_image || null}
-              onChange={(url) => setSettings((prev) => ({ ...prev, qris_image: url || undefined }))}
+              onChange={(url) => setSettings((prev: Partial<PaymentSettings>) => ({ ...prev, qris_image: url || undefined }))}
             />
           </Card>
 

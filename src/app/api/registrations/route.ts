@@ -64,11 +64,12 @@ export async function GET(request: NextRequest) {
     }
     
     return NextResponse.json({ registrations: data || [] });
-  } catch (err) {
-    console.error('[API Critical Error]:', err);
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error('[API Critical Error]:', error);
     return NextResponse.json({ 
       error: 'Terjadi kesalahan sistem', 
-      details: err.message || String(err) 
+      details: error.message || String(err) 
     }, { status: 500 });
   }
 }
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     // Check event exists and is published
     const { data: event } = await supabase
       .from('events')
-      .select('id, status, price, max_peserta')
+      .select('id, title, status, price, max_peserta')
       .eq('id', event_id)
       .single();
     if (!event) return NextResponse.json({ error: 'Event tidak ditemukan' }, { status: 404 });
@@ -167,8 +168,9 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json({ success: true, registration, mode: 'pending' }, { status: 201 });
-  } catch (err) {
-    console.error('Registration Critical Error:', err);
-    return NextResponse.json({ error: 'Server error', details: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error('Registration Critical Error:', error);
+    return NextResponse.json({ error: 'Server error', details: error.message }, { status: 500 });
   }
 }

@@ -100,6 +100,16 @@ export interface AuthUser {
   pro_status: ProStatus;
   whatsapp: string;
   profile_image?: string;
+  updated_at?: string;
+}
+
+export interface PaymentSettings {
+  payment_name?: string;
+  account_name?: string;
+  account_number?: string;
+  qris_image?: string;
+  whatsapp_admin?: string;
+  description?: string;
 }
 
 export interface ApiResponse<T = unknown> {

@@ -55,7 +55,7 @@ export default function OrganizerEventPage() {
         console.log(`[Organizer Debug] Successfully fetched ${d.registrations?.length || 0} registrations`);
         setRegistrations(d.registrations || []);
       } else {
-        let errData = {};
+        let errData: { details?: string } = {};
         try {
           errData = await regRes.json();
         } catch {

@@ -11,6 +11,7 @@ import ImageUpload from '@/components/ImageUpload';
 import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -19,7 +20,7 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [paymentProof, setPaymentProof] = useState<string | null>(null);
-  const [registrationObj, setRegistrationObj] = useState<EventRegistration | null>(null);
+  const [registrationObj, setRegistrationObj] = useState<Partial<EventRegistration> | null>(null);
   const alert = useAlert();
   const { user } = useAuth();
 
@@ -27,7 +28,7 @@ export default function EventDetailPage() {
     fetchData();
 
     // Subscribe to REALTIME status updates
-    let channel: { unsubscribe: () => void } | null = null;
+    let channel: RealtimeChannel | null = null;
     if (user) {
       channel = supabase
         .channel(`status_sync_${params.id}_${user.id}`)
