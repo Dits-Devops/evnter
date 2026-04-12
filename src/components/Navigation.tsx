@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
 import { Home, Ticket, User, Calendar, PlusCircle, ScanLine, LayoutDashboard, Users, Bell } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { getProfileImageUrl } from '@/utils/helpers';
 
 interface NavItem {
   href: string;
@@ -88,7 +89,7 @@ export default function Navigation() {
           const Icon = item.icon;
           const isProfileItem = item.href.includes('/profile');
           const isNotification = item.href === '/notifications';
-          const profileImageUrl = user?.profile_image ? `${user.profile_image}?t=${user.updated_at ? new Date(user.updated_at).getTime() : Date.now()}` : null;
+          const profileImageUrl = getProfileImageUrl(user);
           
           return (
             <Link

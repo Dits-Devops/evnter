@@ -62,7 +62,7 @@ export async function PUT(request: NextRequest) {
       .from('users')
       .update(updatePayload)
       .eq('id', user.id)
-      .select('id, name, email, role, pro_status, whatsapp, profile_image, pro_payment_proof_url')
+      .select('id, name, email, role, pro_status, whatsapp, profile_image, pro_payment_proof_url, updated_at')
       .single();
 
     if (error) return NextResponse.json({ error: 'Gagal update profil' }, { status: 500 });

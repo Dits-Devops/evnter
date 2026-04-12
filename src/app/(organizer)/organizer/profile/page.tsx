@@ -8,7 +8,7 @@ import Button from '@/components/Button';
 import Input from '@/components/shared/Input';
 import Card from '@/components/Card';
 import AvatarUpload from '@/components/AvatarUpload';
-import { getInitials } from '@/utils/helpers';
+import { getInitials, getProfileImageUrl } from '@/utils/helpers';
 import { useAlert } from '@/context/AlertContext';
 
 export default function OrganizerProfilePage() {
@@ -61,7 +61,7 @@ export default function OrganizerProfilePage() {
     router.replace('/login');
   }
 
-  const profileImageUrl = user?.profile_image ? `${user.profile_image}?t=${new Date(user.updated_at || Date.now()).getTime()}` : null;
+  const profileImageUrl = getProfileImageUrl(user);
 
   return (
     <div>

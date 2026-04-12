@@ -8,7 +8,7 @@ import Input from '@/components/shared/Input';
 import Card from '@/components/Card';
 import AvatarUpload from '@/components/AvatarUpload';
 import { useAlert } from '@/context/AlertContext';
-import { getInitials } from '@/utils/helpers';
+import { getInitials, getProfileImageUrl } from '@/utils/helpers';
 import Header from '@/components/Header';
 import { Sparkles, Edit2, LogOut, CheckCircle, Mail, Phone, Clock } from 'lucide-react';
 
@@ -70,7 +70,7 @@ export default function ProfilePage() {
   const proStatus = user ? proStatusLabels[user.pro_status] : proStatusLabels.free;
   const StatusIcon = proStatus.icon;
 
-  const profileImageUrl = user?.profile_image ? `${user.profile_image}?t=${new Date(user.updated_at || Date.now()).getTime()}` : null;
+  const profileImageUrl = getProfileImageUrl(user);
 
   return (
     <div className="pb-28 animate-in-slide-up">
