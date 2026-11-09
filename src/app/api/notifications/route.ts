@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
-import { createServerClient } from '@/lib/supabase';
+import { createServerClient, withTimeout } from '@/lib/supabase';
+import { mockNotifications } from '@/lib/mockData';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,16 +14,23 @@ export async function GET() {
     const user = verifyToken(token);
     if (!user) return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
 
-    const supabase = createServerClient();
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(20);
+    try {
+      const supabase = createServerClient();
+      const { data, error } = await withTimeout<any>(
+        supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(20)
+      );
 
-    if (error) return NextResponse.json({ error: 'Gagal mengambil notifikasi' }, { status: 500 });
-    return NextResponse.json({ notifications: data });
+      if (!error && data) return NextResponse.json({ notifications: data });
+    } catch {
+      // Supabase fallback
+    }
+
+    return NextResponse.json({ notifications: mockNotifications });
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

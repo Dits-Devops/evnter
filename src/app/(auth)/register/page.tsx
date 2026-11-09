@@ -1,16 +1,19 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { motion } from 'motion/react';
 import { useAuth } from '@/context/AuthContext';
-import Button from '@/components/Button';
-import Input from '@/components/shared/Input';
+import { User, Mail, Lock, Phone, Sparkles, UserPlus, ArrowRight } from 'lucide-react';
 import StatusMessage from '@/components/StatusMessage';
-import { UserPlus } from 'lucide-react';
+import { ShimmerButton } from '@/components/ui/ShimmerButton';
+import { triggerConfetti } from '@/lib/confetti';
 
 export default function RegisterPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const [role, setRole] = useState<'user' | 'organizer'>('user');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -42,7 +45,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, role }),
       });
       const data = await res.json();
 
@@ -52,7 +55,11 @@ export default function RegisterPage() {
         return;
       }
 
-      router.replace('/');
+      triggerConfetti();
+      setTimeout(() => {
+        if (role === 'organizer') router.replace('/organizer/my-events');
+        else router.replace('/');
+      }, 700);
     } catch {
       setError('Gagal terhubung ke server. Periksa koneksi internet Anda.');
       setSubmitting(false);
@@ -62,62 +69,152 @@ export default function RegisterPage() {
   if (loading) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-extrabold text-foreground tracking-tight">Buat Akun Baru</h2>
-        <p className="text-sm text-muted-foreground mt-1">Daftar untuk mulai memesan tiket</p>
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      <div className="text-center space-y-1">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider mb-2">
+          <Sparkles className="w-3.5 h-3.5" />
+          Mulai Petualangan Anda
+        </div>
+        <h2 className="text-2xl font-black text-foreground tracking-tight">Buat Akun Baru</h2>
+        <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+          Dapatkan akses tiket eksklusif dan pengalaman event terbaik se-Indonesia.
+        </p>
+      </div>
+
+      {/* Role Picker Pills */}
+      <div className="flex p-1 bg-muted/80 backdrop-blur-md rounded-2xl border border-border/70">
+        <button
+          type="button"
+          onClick={() => setRole('user')}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+            role === 'user'
+              ? 'bg-primary text-white shadow-md shadow-primary/25'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          🎟️ Peserta Event
+        </button>
+        <button
+          type="button"
+          onClick={() => setRole('organizer')}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+            role === 'organizer'
+              ? 'bg-primary text-white shadow-md shadow-primary/25'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          🎪 Penyelenggara
+        </button>
       </div>
 
       {error && <StatusMessage type="error" message={error} />}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Input
-          label="Nama Lengkap"
-          name="name"
-          value={form.name}
-          onChange={handleChange}
-          placeholder="M. Fulan"
-          required
-        />
-        <Input
-          label="Email"
-          name="email"
-          type="email"
-          value={form.email}
-          onChange={handleChange}
-          placeholder="email@example.com"
-          required
-        />
-        <Input
-          label="Password"
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={handleChange}
-          placeholder="Minimal 6 karakter"
-          required
-        />
-        <Input
-          label="Nomor WhatsApp"
-          name="whatsapp"
-          type="tel"
-          value={form.whatsapp}
-          onChange={handleChange}
-          placeholder="08xxxxxxxxxx"
-          required
-        />
-        <Button type="submit" loading={submitting} fullWidth size="lg" className="mt-2">
-          <UserPlus className="w-5 h-5 mr-1 hidden" />
-          Daftar Sekarang
-        </Button>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        {/* Nama Lengkap */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-bold text-foreground/80 uppercase tracking-wider">
+            Nama Lengkap
+          </label>
+          <div className="relative">
+            <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              name="name"
+              type="text"
+              required
+              value={form.name}
+              onChange={handleChange}
+              placeholder="Contoh: Raditya Pratama"
+              className="w-full h-11 pl-10 pr-4 rounded-xl bg-card border border-border/70 text-sm font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all shadow-sm"
+            />
+          </div>
+        </div>
+
+        {/* Email */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-bold text-foreground/80 uppercase tracking-wider">
+            Alamat Email
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              name="email"
+              type="email"
+              required
+              value={form.email}
+              onChange={handleChange}
+              placeholder="nama@email.com"
+              className="w-full h-11 pl-10 pr-4 rounded-xl bg-card border border-border/70 text-sm font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all shadow-sm"
+            />
+          </div>
+        </div>
+
+        {/* WhatsApp */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-bold text-foreground/80 uppercase tracking-wider">
+            Nomor WhatsApp
+          </label>
+          <div className="relative">
+            <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              name="whatsapp"
+              type="tel"
+              required
+              value={form.whatsapp}
+              onChange={handleChange}
+              placeholder="081234567890"
+              className="w-full h-11 pl-10 pr-4 rounded-xl bg-card border border-border/70 text-sm font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all shadow-sm"
+            />
+          </div>
+        </div>
+
+        {/* Password */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-bold text-foreground/80 uppercase tracking-wider">
+            Kata Sandi
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              name="password"
+              type="password"
+              required
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Minimal 6 karakter"
+              className="w-full h-11 pl-10 pr-4 rounded-xl bg-card border border-border/70 text-sm font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all shadow-sm"
+            />
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <ShimmerButton
+            type="submit"
+            disabled={submitting}
+            className="w-full h-12 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              'Membuat Akun...'
+            ) : (
+              <>
+                <UserPlus className="w-4 h-4" />
+                <span>Daftar Akun Sekarang</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </ShimmerButton>
+        </div>
       </form>
 
-      <p className="text-center text-sm text-muted-foreground mt-8">
-        Sudah punya akun?{' '}
-        <Link href="/login" className="text-primary font-bold hover:underline transition-all">
+      <p className="text-center text-xs text-muted-foreground pt-2">
+        Sudah memiliki akun?{' '}
+        <Link href="/login" className="text-primary font-bold hover:underline">
           Masuk di sini
         </Link>
       </p>
-    </div>
+    </motion.div>
   );
 }

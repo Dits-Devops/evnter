@@ -1,3 +1,5 @@
+import { CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+
 interface StatusMessageProps {
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
@@ -5,21 +7,21 @@ interface StatusMessageProps {
 
 export default function StatusMessage({ type, message }: StatusMessageProps) {
   const styles = {
-    success: 'bg-green-50 border-green-200 text-green-800',
-    error: 'bg-red-50 border-red-200 text-red-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800',
-    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+    success: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500',
+    error: 'bg-rose-500/10 border-rose-500/30 text-rose-500',
+    info: 'bg-blue-500/10 border-blue-500/30 text-blue-500',
+    warning: 'bg-amber-500/10 border-amber-500/30 text-amber-500',
   };
   const icons = {
-    success: '✅',
-    error: '❌',
-    info: 'ℹ️',
-    warning: '⚠️',
+    success: <CheckCircle2 className="w-4 h-4 shrink-0" />,
+    error: <AlertCircle className="w-4 h-4 shrink-0" />,
+    info: <Info className="w-4 h-4 shrink-0" />,
+    warning: <AlertTriangle className="w-4 h-4 shrink-0" />,
   };
   return (
-    <div className={`flex items-center gap-3 p-4 rounded-2xl border ${styles[type]}`}>
-      <span>{icons[type]}</span>
-      <p className="text-sm font-medium">{message}</p>
+    <div className={`flex items-center gap-2.5 p-3.5 rounded-2xl border text-xs font-bold shadow-sm transition-all ${styles[type]}`}>
+      {icons[type]}
+      <p className="flex-1">{message}</p>
     </div>
   );
 }

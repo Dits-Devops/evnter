@@ -22,9 +22,9 @@ export default function Textarea({
   error,
 }: TextareaProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={name} className="text-sm font-semibold text-gray-700">
-        {label} {required && <span className="text-red-500">*</span>}
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={name} className="text-xs font-bold text-foreground">
+        {label} {required && <span className="text-rose-500">*</span>}
       </label>
       <textarea
         id={name}
@@ -34,13 +34,13 @@ export default function Textarea({
         placeholder={placeholder}
         required={required}
         rows={rows}
-        className={`w-full px-4 py-3 rounded-2xl border bg-white text-gray-800 text-base transition-colors resize-none ${
+        className={`w-full px-4 py-3 rounded-2xl border bg-muted/40 text-foreground text-sm font-medium transition-all resize-none focus:outline-none ${
           error
-            ? 'border-red-400'
-            : 'border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300'
+            ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+            : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
         }`}
       />
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && <p className="text-rose-500 text-xs mt-1 font-semibold">{error}</p>}
     </div>
   );
 }

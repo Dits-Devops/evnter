@@ -1,220 +1,375 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/context/AuthContext';
 import { Event } from '@/types';
 import { formatDate } from '@/utils/helpers';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
-import { MyEventsListSkeleton } from '@/components/Skeleton';
-import { CalendarDays, Trash2, Plus, AlertTriangle, Image as ImageIcon } from 'lucide-react';
+import { 
+  CalendarDays, 
+  Trash2, 
+  Plus, 
+  MapPin, 
+  Ticket, 
+  TrendingUp, 
+  Sparkles, 
+  ScanLine, 
+  CheckCircle2, 
+  AlertCircle,
+  Settings,
+  Image as ImageIcon
+} from 'lucide-react';
+import { BackgroundGlow } from '@/components/ui/BackgroundGlow';
+import { ShimmerButton } from '@/components/ui/ShimmerButton';
+import { mockEvents } from '@/lib/mockData';
 
 export default function MyEventsPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<Event[]>(mockEvents);
+  const [loading, setLoading] = useState(false);
+  const [filterTab, setFilterTab] = useState<'all' | 'published' | 'draft'>('all');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
-    const res = await fetch(`/api/events?organizer_id=${user.id}&status=all&t=${Date.now()}`);
-    const data = await res.json();
-    setEvents(data.events || []);
-    setLoading(false);
+    if (events.length === 0) setLoading(true);
+    try {
+      const res = await fetch(`/api/events?organizer_id=${user.id}&status=all`);
+      const data = await res.json();
+      if (data.events && data.events.length > 0) {
+        setEvents(data.events);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
-  async function handleUnpublish(eventId: string) {
-    setProcessing(eventId);
-    // Optimistic update
-    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'draft' } : e));
-    
-    await fetch(`/api/events/${eventId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'draft' }),
-    });
-    setProcessing(null);
-  }
+  async function handleToggleStatus(event: Event) {
+    const newStatus = event.status === 'published' ? 'draft' : 'published';
+    setProcessing(event.id);
+    setEvents((prev) => prev.map((e) => (e.id === event.id ? { ...e, status: newStatus } : e)));
 
-  async function handlePublish(eventId: string) {
-    setProcessing(eventId);
-    // Optimistic update
-    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'published' } : e));
-
-    await fetch(`/api/events/${eventId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'published' }),
-    });
-    setProcessing(null);
+    try {
+      await fetch(`/api/events/${event.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setProcessing(null);
+    }
   }
 
   async function handleDelete(eventId: string) {
     setProcessing(eventId);
-    // Optimistic update
-    setEvents(prev => prev.filter(e => e.id !== eventId));
-    
-    await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
-    setConfirmDelete(null);
-    setProcessing(null);
+    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    try {
+      await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setConfirmDelete(null);
+      setProcessing(null);
+    }
   }
 
+  const stats = useMemo(() => {
+    const totalEvents = events.length;
+    const published = events.filter((e) => e.status === 'published').length;
+    const totalTicketsSold = events.reduce((acc, curr) => acc + (curr.ticket_count || 0), 0);
+    const totalGross = events.reduce((acc, curr) => acc + (curr.ticket_count || 0) * (curr.price || 0), 0);
+    return { totalEvents, published, totalTicketsSold, totalGross };
+  }, [events]);
+
+  const filteredEvents = useMemo(() => {
+    if (filterTab === 'published') return events.filter((e) => e.status === 'published');
+    if (filterTab === 'draft') return events.filter((e) => e.status === 'draft');
+    return events;
+  }, [events, filterTab]);
+
   return (
-    <div className="min-h-screen bg-background pb-28 animate-in-slide-up">
-      {/* Header Area */}
-      <div className="bg-primary px-5 pt-14 pb-16 rounded-b-[2.5rem] relative overflow-hidden shadow-soft">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-[80px] mix-blend-overlay"></div>
-        <div className="relative z-10 flex items-center justify-between">
+    <div className="relative min-h-screen bg-background pb-36">
+      <BackgroundGlow variant="mesh" />
+
+      {/* Header Organizer */}
+      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border/50 px-5 pt-12 pb-3.5 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <h1 className="text-2xl font-black text-white tracking-tight">Acara Saya</h1>
-            <p className="text-primary-foreground/80 text-sm mt-1">Kelola semua event yang Anda buat</p>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold tracking-wider uppercase">
+              <Sparkles className="w-3 h-3 text-primary" />
+              Organizer Studio
+            </div>
+            <h1 className="text-2xl font-black text-foreground tracking-tight mt-1">
+              Manajemen Event
+            </h1>
           </div>
+
           <Link href="/organizer/create-event">
-            <Button size="icon" className="bg-white text-primary hover:bg-white/90 active:scale-95 transition-transform">
-              <Plus className="w-6 h-6" />
-            </Button>
+            <ShimmerButton className="h-10 px-3.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
+              <Plus className="w-4 h-4" />
+              <span>Buat Event</span>
+            </ShimmerButton>
           </Link>
+        </div>
+
+        {/* Filter Pills */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setFilterTab('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              filterTab === 'all'
+                ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                : 'bg-card text-muted-foreground hover:text-foreground border border-border/70'
+            }`}
+          >
+            Semua ({events.length})
+          </button>
+          <button
+            onClick={() => setFilterTab('published')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+              filterTab === 'published'
+                ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/25'
+                : 'bg-card text-muted-foreground hover:text-foreground border border-border/70'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Live ({events.filter((e) => e.status === 'published').length})</span>
+          </button>
+          <button
+            onClick={() => setFilterTab('draft')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              filterTab === 'draft'
+                ? 'bg-muted-foreground text-white shadow-sm'
+                : 'bg-card text-muted-foreground hover:text-foreground border border-border/70'
+            }`}
+          >
+            Draft ({events.filter((e) => e.status === 'draft').length})
+          </button>
+        </div>
+      </header>
+
+      {/* Metrics Bento Row */}
+      <div className="px-5 pt-4">
+        <div className="grid grid-cols-3 gap-2.5">
+          <div className="bg-card/70 backdrop-blur-md p-3 rounded-2xl border border-border/70">
+            <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <CalendarDays className="w-3 h-3 text-primary" />
+              <span>Acara Aktif</span>
+            </div>
+            <p className="text-xl font-black text-foreground mt-1">{stats.published}</p>
+          </div>
+
+          <div className="bg-card/70 backdrop-blur-md p-3 rounded-2xl border border-border/70">
+            <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <Ticket className="w-3 h-3 text-blue-500" />
+              <span>Peserta</span>
+            </div>
+            <p className="text-xl font-black text-foreground mt-1">{stats.totalTicketsSold.toLocaleString('id-ID')}</p>
+          </div>
+
+          <div className="bg-card/70 backdrop-blur-md p-3 rounded-2xl border border-border/70">
+            <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <TrendingUp className="w-3 h-3 text-emerald-500" />
+              <span>Omset</span>
+            </div>
+            <p className="text-sm font-black text-emerald-600 mt-2 truncate">
+              {stats.totalGross > 0 ? `Rp ${(stats.totalGross / 1000000).toFixed(1)}Jt` : 'Rp 0'}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="px-5 -mt-8 relative z-20">
+      {/* Events List */}
+      <div className="px-5 pt-4">
         {loading ? (
-          <MyEventsListSkeleton count={2} />
-        ) : events.length === 0 ? (
-          <Card className="text-center py-16 border-dashed border-2 border-border bg-card/80 backdrop-blur-sm">
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-               <CalendarDays className="w-10 h-10 text-primary opacity-50" />
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-44 bg-card/60 animate-pulse rounded-3xl border border-border/60" />
+            ))}
+          </div>
+        ) : filteredEvents.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-20 px-4 bg-card/60 backdrop-blur-md rounded-3xl border border-dashed border-border"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <CalendarDays className="w-7 h-7 text-primary/60" />
             </div>
-            <p className="text-xl font-bold text-foreground">Belum ada event</p>
-            <p className="text-sm mt-1 mb-8 text-muted-foreground">Buat event pertama Anda sekarang!</p>
+            <h3 className="text-base font-bold text-foreground">Belum ada event di sini</h3>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto mb-5">
+              Publikasikan konser, workshop, atau festival Anda sekarang untuk mulai menjual tiket.
+            </p>
             <Link href="/organizer/create-event">
-              <Button fullWidth><Plus className="w-5 h-5" /> Buat Event Baru</Button>
+              <ShimmerButton className="px-5 py-2.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5">
+                <Plus className="w-4 h-4" />
+                <span>Buat Event Baru</span>
+              </ShimmerButton>
             </Link>
-          </Card>
+          </motion.div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {events.map((event) => {
-              const isPublished = event.status === 'published';
-              return (
-                <Card key={event.id} padding={false} className="overflow-hidden group flex">
-                  {/* Small Square Poster */}
-                  <div className="w-24 h-24 shrink-0 relative overflow-hidden">
-                    {event.poster_url ? (
-                      <Image
-                        src={event.poster_url}
-                        alt={event.title}
-                        fill
-                        className="object-cover transition-transform group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-primary/20 flex items-center justify-center">
-                        <ImageIcon className="w-6 h-6 text-primary/30" />
+          <div className="space-y-4">
+            <AnimatePresence mode="popLayout">
+              {filteredEvents.map((event, idx) => {
+                const isPublished = event.status === 'published';
+                const count = event.ticket_count || 0;
+                const max = event.max_peserta || 100;
+                const percent = Math.min(Math.round((count / max) * 100), 100);
+
+                return (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.25, delay: Math.min(idx * 0.05, 0.3) }}
+                    className="bg-card/90 backdrop-blur-md rounded-3xl border border-border/70 overflow-hidden shadow-sm"
+                  >
+                    {/* Top Row: Poster & Basic Info */}
+                    <div className="p-4 flex gap-3.5">
+                      <div className="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 bg-muted">
+                        {event.poster_url ? (
+                          <Image
+                            src={event.poster_url}
+                            alt={event.title}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                            <ImageIcon className="w-6 h-6 text-primary/40" />
+                          </div>
+                        )}
+                        <span
+                          className={`absolute top-1 left-1 text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase ${
+                            isPublished ? 'bg-emerald-500 text-white' : 'bg-muted-foreground text-white'
+                          }`}
+                        >
+                          {isPublished ? 'Live' : 'Draft'}
+                        </span>
                       </div>
-                    )}
-                    <div className="absolute top-1 left-1">
-                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider ${isPublished ? 'bg-blue-500 text-white' : 'bg-gray-400 text-white'}`}>
-                        {isPublished ? 'Live' : 'Draft'}
-                      </span>
-                    </div>
-                  </div>
- 
-                  {/* Compacter Info */}
-                  <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-                    <div className="mb-1">
-                      <h3 className="font-bold text-foreground text-sm line-clamp-1 leading-tight mb-1">{event.title}</h3>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
-                        <CalendarDays className="w-3 h-3 text-primary" />
-                        <span>{formatDate(event.date)}</span>
+
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          <h3 className="text-sm font-bold text-foreground line-clamp-1 leading-snug">
+                            {event.title}
+                          </h3>
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mt-1">
+                            <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                            <span>{formatDate(event.date)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 truncate">
+                            <MapPin className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                            <span className="truncate">{event.location}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs pt-1">
+                          <span className="font-bold text-primary">
+                            {event.price === 0 ? 'Gratis' : `Rp ${(event.price || 0).toLocaleString('id-ID')}`}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    
-                    {/* Compact Actions */}
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => router.push(`/organizer/events/${event.id}`)}
-                        className="flex-1 bg-primary text-white text-[10px] font-bold py-1.5 rounded-lg active:scale-95 transition-all"
+
+                    {/* Progress Bar Kuota */}
+                    <div className="px-4 py-2 bg-muted/30 border-t border-border/40">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground mb-1.5">
+                        <span>Penjualan Tiket ({percent}%)</span>
+                        <span className="font-bold text-foreground">
+                          {count} / {max}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full transition-all duration-500"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Action Buttons Row */}
+                    <div className="p-3 bg-card border-t border-border/50 flex items-center gap-2">
+                      <Link
+                        href={`/organizer/events/${event.id}`}
+                        className="flex-1 h-9 rounded-xl bg-primary text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all shadow-sm shadow-primary/20"
                       >
-                        Kelola
+                        <Settings className="w-3.5 h-3.5" />
+                        <span>Kelola</span>
+                      </Link>
+
+                      <Link
+                        href="/organizer/scanner"
+                        className="h-9 px-3 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800 text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all"
+                      >
+                        <ScanLine className="w-3.5 h-3.5" />
+                        <span>Scan QR</span>
+                      </Link>
+
+                      <button
+                        disabled={processing === event.id}
+                        onClick={() => handleToggleStatus(event)}
+                        className={`h-9 px-3 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-50 ${
+                          isPublished
+                            ? 'bg-amber-50 text-amber-700 border-amber-200/80 hover:bg-amber-100'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100'
+                        }`}
+                      >
+                        {processing === event.id ? '...' : isPublished ? 'Jadikan Draft' : 'Aktifkan'}
                       </button>
-                      
-                      {isPublished ? (
-                        <button
-                          disabled={processing === event.id}
-                          onClick={() => handleUnpublish(event.id)}
-                          className="flex-1 bg-amber-50 text-amber-600 border border-amber-100 text-[10px] font-bold py-1.5 rounded-lg active:scale-95 transition-all disabled:opacity-50"
-                        >
-                          {processing === event.id ? '...' : 'Draft'}
-                        </button>
-                      ) : (
-                        <button
-                          disabled={processing === event.id}
-                          onClick={() => handlePublish(event.id)}
-                          className="flex-1 bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold py-1.5 rounded-lg active:scale-95 transition-all disabled:opacity-50"
-                        >
-                          {processing === event.id ? '...' : 'Aktifkan'}
-                        </button>
-                      )}
-                      
+
                       <button
                         disabled={processing === event.id}
                         onClick={() => setConfirmDelete(event.id)}
-                        className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg active:scale-95 transition-all disabled:opacity-50"
+                        className="h-9 w-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-200/60 flex items-center justify-center hover:bg-rose-100 active:scale-95 transition-all"
+                        title="Hapus Event"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                  </div>
-                </Card>
-              );
-            })}
+
+                    {/* Inline Delete Confirmation Dialog */}
+                    {confirmDelete === event.id && (
+                      <div className="p-3 bg-rose-500/10 border-t border-rose-500/20 flex items-center justify-between text-xs">
+                        <span className="font-bold text-rose-600">Yakin ingin menghapus event ini?</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setConfirmDelete(null)}
+                            className="px-2.5 py-1 rounded-lg bg-card text-foreground font-semibold"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            onClick={() => handleDelete(event.id)}
+                            className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+            {/* Safe area spacer for floating dock */}
+            <div className="h-20" />
           </div>
         )}
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {confirmDelete && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-5 animate-in fade-in duration-200"
-          onClick={() => setConfirmDelete(null)}
-        >
-          <div
-            className="bg-card rounded-[2rem] p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-destructive" />
-            </div>
-            <h3 className="text-xl font-bold text-foreground text-center mb-2">Hapus Event?</h3>
-            <p className="text-sm text-muted-foreground text-center mb-8">
-              Event ini akan dihapus permanen beserta semua data tiket. Tindakan ini tidak bisa dibatalkan.
-            </p>
-            <div className="flex gap-3">
-              <Button variant="secondary" fullWidth onClick={() => setConfirmDelete(null)} size="lg">
-                Batal
-              </Button>
-              <Button
-                variant="danger"
-                fullWidth
-                size="lg"
-                loading={processing === confirmDelete}
-                onClick={() => handleDelete(confirmDelete)}
-              >
-                Hapus
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-

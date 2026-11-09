@@ -1,5 +1,7 @@
 'use client';
 
+import LoadingSpinner from '@/components/LoadingSpinner';
+
 interface SkeletonProps {
   variant?: 'rectangular' | 'circle' | 'text';
   width?: string | number;
@@ -13,7 +15,7 @@ export default function Skeleton({
   height,
   className = '',
 }: SkeletonProps) {
-  const baseClasses = 'animate-pulse bg-gray-200';
+  const baseClasses = 'animate-pulse bg-muted/60';
   const variantClasses = {
     rectangular: 'rounded-2xl',
     circle: 'rounded-full',
@@ -37,7 +39,7 @@ export function EventSkeleton() {
           <Skeleton variant="text" width="60%" />
           <Skeleton variant="text" width="90%" height={32} />
         </div>
-        <div className="space-y-3 bg-gray-50 p-4 rounded-2xl">
+        <div className="space-y-3 bg-card border border-border/60 p-4 rounded-3xl">
           <Skeleton variant="text" width="40%" />
           <Skeleton variant="text" width="70%" />
           <Skeleton variant="text" width="50%" />
@@ -70,7 +72,7 @@ export function EventListSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="flex flex-col gap-4 animate-in-fade">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="bg-white rounded-3xl p-4 shadow-soft space-y-3">
+        <div key={i} className="bg-card border border-border/70 rounded-3xl p-4 shadow-sm space-y-3">
           <Skeleton height={160} className="w-full rounded-2xl" />
           <Skeleton variant="text" width="70%" height={24} />
           <Skeleton variant="text" width="40%" />
@@ -84,7 +86,7 @@ export function TicketListSkeleton({ count = 2 }: { count?: number }) {
   return (
     <div className="flex flex-col gap-4 animate-in-fade">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="bg-white rounded-3xl p-4 shadow-soft space-y-3">
+        <div key={i} className="bg-card border border-border/70 rounded-3xl p-4 shadow-sm space-y-3">
           <div className="flex justify-between items-start">
             <Skeleton variant="text" width="60%" height={24} />
             <Skeleton variant="text" width="20%" />
@@ -100,12 +102,12 @@ export function MyEventsListSkeleton({ count = 2 }: { count?: number }) {
   return (
     <div className="flex flex-col gap-5 animate-in-fade px-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="bg-white rounded-[2rem] overflow-hidden shadow-soft">
+        <div key={i} className="bg-card border border-border/70 rounded-[2rem] overflow-hidden shadow-sm">
           <Skeleton height={160} className="w-full" />
           <div className="p-5 space-y-3">
             <Skeleton variant="text" width="80%" height={24} />
             <Skeleton variant="text" width="40%" />
-            <div className="flex gap-2 pt-4 border-t">
+            <div className="flex gap-2 pt-4 border-t border-border/50">
               <Skeleton height={36} className="flex-1 rounded-xl" />
               <Skeleton height={36} className="flex-1 rounded-xl" />
               <Skeleton height={36} width={36} className="rounded-xl" />
@@ -121,7 +123,7 @@ export function NotificationsListSkeleton({ count = 4 }: { count?: number }) {
   return (
     <div className="flex flex-col gap-3 animate-in-fade">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="bg-white rounded-2xl p-4 shadow-soft flex gap-3">
+        <div key={i} className="bg-card border border-border/70 rounded-2xl p-4 shadow-sm flex gap-3">
           <Skeleton variant="circle" width={40} height={40} className="shrink-0" />
           <div className="flex-1 space-y-2">
             <Skeleton variant="text" width="90%" />

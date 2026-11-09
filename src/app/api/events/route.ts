@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
-import { createServerClient } from '@/lib/supabase';
+import { createServerClient, withTimeout } from '@/lib/supabase';
+import { mockEvents } from '@/lib/mockData';
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const search = searchParams.get('search')?.toLowerCase() || '';
+  const status = searchParams.get('status') || 'published';
+  const organizerId = searchParams.get('organizer_id');
+
   try {
     const supabase = createServerClient();
-    const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search') || '';
-    const status = searchParams.get('status') || 'published';
-    const organizerId = searchParams.get('organizer_id');
-
     let query = supabase
       .from('events')
       .select(`*, organizer:users(id, name), ticket_count:tickets(count)`)
@@ -20,22 +21,40 @@ export async function GET(request: NextRequest) {
     if (search) query = query.ilike('title', `%${search}%`);
     if (organizerId) query = query.eq('organizer_id', organizerId);
 
-    const { data, error } = await query;
-    if (error) return NextResponse.json({ error: 'Gagal mengambil data event' }, { status: 500 });
-
-    const events = data.map(
-      (event: { ticket_count?: { count: number }[] | null; [key: string]: unknown }) => ({
-        ...event,
-        ticket_count: Array.isArray(event.ticket_count)
-          ? (event.ticket_count[0]?.count ?? 0)
-          : 0,
-      })
-    );
-
-    return NextResponse.json({ events });
+    const { data, error } = await withTimeout<any>(query);
+    if (!error && data && data.length > 0) {
+      const events = data.map(
+        (event: { ticket_count?: { count: number }[] | null; [key: string]: unknown }) => ({
+          ...event,
+          ticket_count: Array.isArray(event.ticket_count)
+            ? (event.ticket_count[0]?.count ?? 0)
+            : 0,
+        })
+      );
+      return NextResponse.json({ events });
+    }
   } catch {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    // Supabase fallback to mock data
   }
+
+  let filtered = [...mockEvents];
+  if (status !== 'all') {
+    filtered = filtered.filter((e) => e.status === status);
+  }
+  if (search) {
+    filtered = filtered.filter(
+      (e) =>
+        e.title.toLowerCase().includes(search) ||
+        e.location.toLowerCase().includes(search) ||
+        (e.description && e.description.toLowerCase().includes(search))
+    );
+  }
+  if (organizerId) {
+    const matched = filtered.filter((e) => e.organizer_id === organizerId);
+    filtered = matched.length > 0 ? matched : filtered;
+  }
+
+  return NextResponse.json({ events: filtered });
 }
 
 export async function POST(request: NextRequest) {

@@ -51,25 +51,25 @@ export function AlertProvider({ children }: { children: ReactNode }) {
     <AlertContext.Provider value={value}>
       {children}
       {alert && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div 
-            className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-300"
+            className="bg-card border border-border/80 text-card-foreground rounded-[2rem] p-6 w-full max-w-sm shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-300 relative overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-5 ${
-              alert.type === 'success' ? 'bg-emerald-100 text-emerald-500' :
-              alert.type === 'error' ? 'bg-rose-100 text-rose-500' :
-              alert.type === 'warning' || alert.type === 'confirm' ? 'bg-amber-100 text-amber-500' :
-              'bg-blue-100 text-blue-500'
+            <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mb-4 ${
+              alert.type === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+              alert.type === 'error' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+              alert.type === 'warning' || alert.type === 'confirm' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+              'bg-blue-500/10 text-blue-500 border border-blue-500/20'
             }`}>
-              {alert.type === 'success' && <CheckCircle2 className="w-10 h-10" />}
-              {alert.type === 'error' && <XCircle className="w-10 h-10" />}
-              {(alert.type === 'warning' || alert.type === 'confirm') && <AlertTriangle className="w-10 h-10" />}
-              {alert.type === 'info' && <Info className="w-10 h-10" />}
+              {alert.type === 'success' && <CheckCircle2 className="w-8 h-8" />}
+              {alert.type === 'error' && <XCircle className="w-8 h-8" />}
+              {(alert.type === 'warning' || alert.type === 'confirm') && <AlertTriangle className="w-8 h-8" />}
+              {alert.type === 'info' && <Info className="w-8 h-8" />}
             </div>
             
-            <h2 className="text-2xl font-black text-gray-800 mb-2">{alert.title}</h2>
-            <p className="text-sm text-gray-500 mb-6 px-2">{alert.text}</p>
+            <h2 className="text-xl font-black text-foreground mb-1.5">{alert.title}</h2>
+            <p className="text-xs text-muted-foreground font-medium mb-6 px-2">{alert.text}</p>
             
             <div className="flex gap-3 w-full">
               {alert.type === 'confirm' && (

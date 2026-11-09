@@ -75,20 +75,25 @@ export default function QRScanner({ onScan, active = true }: QRScannerProps) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-2xl">
-        <span className="text-4xl mb-3">📷</span>
-        <p className="text-red-600 text-center text-sm">{error}</p>
+      <div className="flex flex-col items-center justify-center p-8 bg-neutral-900/90 border border-white/10 rounded-3xl text-center space-y-2.5 w-full">
+        <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-400 flex items-center justify-center mx-auto text-xl font-bold">
+          📷
+        </div>
+        <p className="text-neutral-300 font-bold text-xs">{error}</p>
+        <p className="text-neutral-500 text-[10px]">Gunakan tab &quot;Input Kode Manual&quot; jika kamera tidak tersedia.</p>
       </div>
     );
   }
 
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-black">
-      <video ref={videoRef} className="w-full" playsInline muted />
+    <div className="relative rounded-3xl overflow-hidden bg-neutral-950 aspect-square border border-white/10 shadow-2xl flex items-center justify-center">
+      <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
       <canvas ref={canvasRef} className="hidden" />
       {scanning && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-48 h-48 border-2 border-white rounded-xl opacity-70" />
+          <div className="w-56 h-56 border-2 border-primary rounded-3xl shadow-[0_0_30px_rgba(59,130,246,0.35)] relative overflow-hidden">
+            <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 animate-pulse shadow-sm" />
+          </div>
         </div>
       )}
     </div>

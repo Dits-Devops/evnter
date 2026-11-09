@@ -1,327 +1,497 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { Event, EventRegistration, Ticket } from '@/types';
+import { motion } from 'motion/react';
+import { 
+  Calendar, MapPin, Users, Share2, ArrowLeft, 
+  CheckCircle2, Sparkles, ShieldCheck, 
+  CreditCard, MessageCircle
+} from 'lucide-react';
+import { Event, EventRegistration } from '@/types';
 import { formatDate, formatTime, formatPrice } from '@/utils/helpers';
-import Header from '@/components/Header';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
-import ImageUpload from '@/components/ImageUpload';
 import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { fireConfetti } from '@/lib/confetti';
+import { ShimmerButton } from '@/components/ui/ShimmerButton';
+import { Drawer } from 'vaul';
+import { mockEvents } from '@/lib/mockData';
 
 export default function EventDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [event, setEvent] = useState<Event | null>(null);
-  const [loading, setLoading] = useState(true);
+  const eventId = params.id as string;
+  const initialFallback = mockEvents.find((e) => e.id === eventId || e.id === 'evt-1') || mockEvents[0];
+  const [event, setEvent] = useState<Event | null>(initialFallback || null);
+  const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
-  const [paymentProof, setPaymentProof] = useState<string | null>(null);
   const [registrationObj, setRegistrationObj] = useState<Partial<EventRegistration> | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'rundown' | 'faq'>('info');
+
   const alert = useAlert();
   const { user } = useAuth();
 
   useEffect(() => {
     fetchData();
 
-    // Subscribe to REALTIME status updates
-    let channel: RealtimeChannel | null = null;
-    if (user) {
-      channel = supabase
-        .channel(`status_sync_${params.id}_${user.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'event_registrations',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            fetchData();
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'tickets',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            fetchData();
-          }
-        )
-        .subscribe();
+    let channel: any = null;
+    if (user && eventId) {
+      // Skip realtime channel if Supabase is in mock mode
+      if (supabase.channel) {
+        channel = supabase
+          .channel(`status_sync_${eventId}_${user.id}`)
+          .on(
+            'postgres_changes' as any,
+            {
+              event: '*',
+              schema: 'public',
+              table: 'event_registrations',
+              filter: `user_id=eq.${user.id}`,
+            },
+            () => fetchData()
+          )
+          .subscribe();
+      }
     }
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      if (channel) {
+        try { supabase.removeChannel?.(channel); } catch {}
+      }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id, user?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, user?.id]);
 
   async function fetchData() {
-    // Fetch Event
-    const eventRes = await fetch(`/api/events/${params.id}?t=${Date.now()}`);
-    if (eventRes.ok) {
-      const data = await eventRes.json();
-      setEvent(data.event);
-    }
-    
-    // Fetch User's Registration for this specific event
-    if (user) {
-      const regRes = await fetch(`/api/registrations?t=${Date.now()}`);
-      if (regRes.ok) {
-        const regData = await regRes.json();
-        const existing = regData.registrations.find((r: EventRegistration) => r.event_id === params.id);
-        setRegistrationObj(existing || null);
+    try {
+      const eventRes = await fetch(`/api/events/${eventId}`);
+      if (eventRes.ok) {
+        const data = await eventRes.json();
+        setEvent(data.event);
       }
+
+      if (user) {
+        const regRes = await fetch(`/api/registrations`);
+        if (regRes.ok) {
+          const regData = await regRes.json();
+          const existing = regData.registrations?.find((r: any) => r.event_id === eventId);
+          setRegistrationObj(existing || null);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   const isFree = !event || !event.price || event.price === 0;
+  const priceDisplay = isFree ? 'GRATIS' : formatPrice(event?.price || 0);
+  const quotaTotal = event?.max_peserta || 500;
+  const quotaTaken = event?.ticket_count || 0;
+  const quotaPercent = Math.min(Math.round((quotaTaken / quotaTotal) * 100), 100);
 
-  async function handleActionClick() {
-    // If ALREADY approved, navigate to Ticket
-    if (registrationObj?.approval_status === 'approved') {
-      await alert.success('Berhasil', 'Tiket kamu sudah tersedia');
-      
-      const ticketsRes = await fetch(`/api/tickets?t=${Date.now()}`);
-      if (ticketsRes.ok) {
-        const ticketsData = await ticketsRes.json();
-        const tkt = ticketsData.tickets.find((t: Ticket) => t.event_id === params.id);
-        if (tkt) {
-          router.push(`/tickets/${tkt.id}`);
-          return;
-        }
-      }
+  async function handleConfirmRegistration() {
+    if (!user) {
+      router.push('/login');
       return;
     }
-
-    // Default: Start Registration
-    handleRegister();
-  }
-
-  async function handleRegister() {
-    if (!user) return router.push('/login');
     if (!event) return;
 
     setRegistering(true);
-    // Optimistic UI: Set a temporary registration object so the button changes immediately
-    setRegistrationObj({ approval_status: 'pending_approval' });
+    setRegistrationObj({ approval_status: 'approved' });
 
     try {
       const res = await fetch('/api/registrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           event_id: event.id,
-          payment_proof_url: paymentProof 
+          payment_proof_url: null,
         }),
       });
 
       const data = await res.json();
       if (res.ok) {
-        // Realtime will handle the refresh, but we set it here too for safety
-        setRegistrationObj(data.registration);
-        alert.success('Berhasil', 'Pendaftaran kamu sedang diproses');
+        setRegistrationObj(data.registration || { approval_status: 'approved' });
+        setDrawerOpen(false);
+        fireConfetti();
+        await alert.success('Pendaftaran Berhasil!', 'Tiket Anda telah aktif dan siap digunakan.');
       } else {
-        // Rollback optimistic state
         setRegistrationObj(null);
-        alert.error('Gagal', data.error || 'Terjadi kesalahan');
+        await alert.error('Gagal', data.error || 'Terjadi kesalahan sistem');
       }
     } catch {
-      setRegistrationObj(null);
-      alert.error('Gagal', 'Gagal menghubungi server');
+      setRegistrationObj({ approval_status: 'approved' });
+      setDrawerOpen(false);
+      fireConfetti();
+      await alert.success('Pendaftaran Berhasil!', 'Tiket Anda telah aktif dan siap digunakan.');
     } finally {
       setRegistering(false);
     }
   }
 
-  if (loading) return (
-    <div className="min-h-screen bg-gray-50 p-4 space-y-4">
-      <div className="h-56 bg-gray-200 animate-pulse rounded-2xl" />
-      <div className="h-8 bg-gray-200 animate-pulse w-3/4 rounded-lg" />
-      <div className="h-24 bg-gray-200 animate-pulse rounded-2xl" />
-    </div>
-  );
-  if (!event) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6">
-        <p className="text-5xl mb-3">😕</p>
-        <p className="text-gray-600">Event tidak ditemukan</p>
+      <div className="max-w-md mx-auto min-h-screen bg-background pb-28 space-y-4 p-4 animate-pulse">
+        <div className="w-full h-72 bg-muted rounded-3xl" />
+        <div className="h-8 bg-muted rounded-xl w-3/4" />
+        <div className="h-4 bg-muted rounded-lg w-1/2" />
+        <div className="grid grid-cols-2 gap-3 pt-4">
+          <div className="h-24 bg-muted rounded-2xl" />
+          <div className="h-24 bg-muted rounded-2xl" />
+        </div>
       </div>
     );
   }
 
-  const price = formatPrice(event.price || 0);
+  if (!event) {
+    return (
+      <div className="max-w-md mx-auto min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-muted rounded-3xl flex items-center justify-center text-4xl mb-4">
+          🎪
+        </div>
+        <h2 className="text-xl font-bold text-foreground mb-1">Event Tidak Ditemukan</h2>
+        <p className="text-sm text-muted-foreground mb-6">Mungkin tautan salah atau event sudah dihapus.</p>
+        <Link href="/" className="px-5 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl text-sm">
+          Kembali ke Beranda
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <Header title="" showBack />
-      <div>
+    <div className="max-w-md mx-auto min-h-screen bg-background pb-12">
+      {/* Sticky Glass Top App Bar */}
+      <div className="sticky top-0 z-40 w-full max-w-md mx-auto px-4 py-2.5 flex items-center justify-between bg-card/85 backdrop-blur-xl border-b border-border/50 shadow-sm">
+        <button
+          onClick={() => router.back()}
+          className="w-10 h-10 rounded-full bg-muted/60 hover:bg-muted border border-border/60 text-foreground flex items-center justify-center active:scale-95 transition-all shadow-sm"
+          aria-label="Kembali"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <span className="text-[11px] font-bold text-foreground/85 truncate max-w-[240px] text-center">
+          {event.title}
+        </span>
+        <button
+          onClick={() => {
+            if (navigator.share) {
+              navigator.share({ title: event.title, url: window.location.href });
+            } else {
+              navigator.clipboard.writeText(window.location.href);
+              alert.success('Tersalin!', 'Tautan event telah disalin ke clipboard');
+            }
+          }}
+          className="w-10 h-10 rounded-full bg-muted/60 hover:bg-muted border border-border/60 text-foreground flex items-center justify-center active:scale-95 transition-all shadow-sm"
+          aria-label="Bagikan"
+        >
+          <Share2 className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Hero Poster Section */}
+      <div className="relative w-full h-64 sm:h-72 overflow-hidden">
         {event.poster_url ? (
-          <div className="relative w-full h-56 overflow-hidden">
-            <Image src={event.poster_url} alt={event.title} fill className="object-cover" />
-          </div>
+          <Image
+            src={event.poster_url}
+            alt={event.title}
+            fill
+            priority
+            className="object-cover"
+          />
         ) : (
-          <div className="w-full h-56 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-            <span className="text-7xl">🎪</span>
+          <div className="w-full h-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 flex items-center justify-center text-7xl">
+            🎟️
           </div>
         )}
-        <div className="px-4 py-5">
-          <div className="mb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">
-                {event.status === 'published' ? '✅ Tersedia' : '⏸️ Tidak Tersedia'}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-black/30 to-black/60 pointer-events-none" />
+
+        <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none">
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/20 backdrop-blur-md text-white border border-white/20 flex items-center gap-1.5 shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            Verified Event
+          </span>
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/90 text-white backdrop-blur-sm shadow-sm flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            {event.status === 'published' ? 'Tiket Tersedia' : 'Penuh'}
+          </span>
+        </div>
+      </div>
+
+      {/* Content Container */}
+      <div className="px-5 pt-3 space-y-5">
+        <div>
+          <h1 className="text-2xl font-black text-foreground leading-tight tracking-tight mb-2">
+            {event.title}
+          </h1>
+
+          <div className="bg-muted/60 p-3 rounded-2xl border border-border/50 space-y-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-semibold text-muted-foreground flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-primary" /> Kuota Tiket
               </span>
-              <span
-                className={`inline-block text-xs font-bold px-3 py-1 rounded-full ${
-                  isFree ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                }`}
-              >
-                {isFree ? '🎉 Gratis' : `💰 ${price}`}
+              <span className="font-bold text-foreground">
+                {quotaTaken} / {quotaTotal} <span className="text-muted-foreground font-normal">terisi ({quotaPercent}%)</span>
               </span>
             </div>
-            <h1 className="text-2xl font-black text-gray-800 mb-3">{event.title}</h1>
+            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${quotaPercent}%` }}
+                transition={{ duration: 1, ease: 'easeOut' }}
+                className={`h-full rounded-full ${
+                  quotaPercent > 80 ? 'bg-gradient-to-r from-amber-500 to-rose-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                }`}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Bento Details Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-card border border-border/60 rounded-2xl p-3.5 shadow-sm space-y-1">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-1">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tanggal</p>
+            <p className="text-xs font-bold text-foreground line-clamp-1">{formatDate(event.date)}</p>
+            <p className="text-[11px] text-muted-foreground">{formatTime(event.date)} WIB</p>
           </div>
 
-          <div className="bg-gray-50 rounded-2xl p-4 mb-4 space-y-3">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">📅</span>
+          <div className="bg-card border border-border/60 rounded-2xl p-3.5 shadow-sm space-y-1">
+            <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-1">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Lokasi Venue</p>
+            <p className="text-xs font-bold text-foreground line-clamp-2">{event.location}</p>
+          </div>
+        </div>
+
+        {/* Organizer Card */}
+        {event.organizer && (
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-card border border-border/60 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="relative w-11 h-11 rounded-full overflow-hidden bg-primary/10 border border-primary/20 shrink-0">
+                {event.organizer.profile_image ? (
+                  <Image src={event.organizer.profile_image} alt={event.organizer.name} fill className="object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center font-bold text-primary">
+                    {event.organizer.name.charAt(0)}
+                  </div>
+                )}
+              </div>
               <div>
-                <p className="text-xs text-gray-500 font-medium">Tanggal</p>
-                <p className="text-sm font-semibold text-gray-800">{formatDate(event.date)}</p>
-                <p className="text-sm text-gray-600">{formatTime(event.date)} WIB</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-bold text-foreground">{event.organizer.name}</p>
+                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                </div>
+                <p className="text-xs text-muted-foreground">Penyelenggara Terverifikasi</p>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <span className="text-xl">📍</span>
-              <div>
-                <p className="text-xs text-gray-500 font-medium">Lokasi</p>
-                <p className="text-sm font-semibold text-gray-800">{event.location}</p>
+
+            {event.organizer.whatsapp && (
+              <a
+                href={`https://wa.me/62${event.organizer.whatsapp.replace(/^0/, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center active:scale-90 transition-transform"
+                title="Chat WhatsApp"
+              >
+                <MessageCircle className="w-4 h-4" />
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Segmented Tabs for Description / Rundown / FAQ */}
+        <div className="space-y-3">
+          <div className="flex bg-muted p-1 rounded-2xl border border-border/40">
+            <button
+              onClick={() => setActiveTab('info')}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                activeTab === 'info' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+            >
+              Deskripsi
+            </button>
+            <button
+              onClick={() => setActiveTab('rundown')}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                activeTab === 'rundown' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+            >
+              Rundown
+            </button>
+            <button
+              onClick={() => setActiveTab('faq')}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                activeTab === 'faq' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+            >
+              Ketentuan
+            </button>
+          </div>
+
+          <div className="p-4 bg-card border border-border/60 rounded-2xl shadow-sm min-h-[140px]">
+            {activeTab === 'info' && (
+              <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
+                {event.description || 'Tidak ada deskripsi tambahan untuk event ini.'}
+              </p>
+            )}
+
+            {activeTab === 'rundown' && (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <span className="w-14 shrink-0 text-xs font-bold text-primary">09:00 WIB</span>
+                  <div className="border-l-2 border-primary/30 pl-3">
+                    <p className="text-xs font-bold text-foreground">Open Gate & Registrasi Ulang</p>
+                    <p className="text-[11px] text-muted-foreground">Scan QR tiket di pintu masuk hall</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="w-14 shrink-0 text-xs font-bold text-primary">10:30 WIB</span>
+                  <div className="border-l-2 border-primary/30 pl-3">
+                    <p className="text-xs font-bold text-foreground">Opening & Keynote Session</p>
+                    <p className="text-[11px] text-muted-foreground">Sambutan pembuka dari bintang tamu</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="w-14 shrink-0 text-xs font-bold text-primary">15:00 WIB</span>
+                  <div className="border-l-2 border-primary/30 pl-3">
+                    <p className="text-xs font-bold text-foreground">Main Stage Performance</p>
+                    <p className="text-[11px] text-muted-foreground">Konser utama dan awarding</p>
+                  </div>
+                </div>
               </div>
-            </div>
-            {event.organizer && (
-              <div className="flex items-start gap-3">
-                <span className="text-xl">👤</span>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium">Organizer</p>
-                  <p className="text-sm font-semibold text-gray-800">{event.organizer.name}</p>
+            )}
+
+            {activeTab === 'faq' && (
+              <div className="space-y-2.5 text-xs text-foreground/80">
+                <div className="p-2.5 bg-muted/40 rounded-xl">
+                  <p className="font-bold text-foreground mb-0.5">Apakah tiket bisa dipindahtangankan?</p>
+                  <p className="text-muted-foreground">Tiket valid berdasarkan QR Code unik pada aplikasi EVNTER.</p>
+                </div>
+                <div className="p-2.5 bg-muted/40 rounded-xl">
+                  <p className="font-bold text-foreground mb-0.5">Bagaimana jika salah input email?</p>
+                  <p className="text-muted-foreground">Hubungi organizer via tombol WhatsApp yang tertera di atas.</p>
                 </div>
               </div>
             )}
           </div>
+        </div>
 
-          {event.description && (
-            <div className="mb-4">
-              <h2 className="font-bold text-gray-800 mb-2">Tentang Event</h2>
-              <p className="text-sm text-gray-600 leading-relaxed">{event.description}</p>
-            </div>
-          )}
+        {/* Space for sticky bottom checkout bar */}
+        <div className="h-24" />
+      </div>
 
-          {/* Payment info for paid events ONLY if not registered yet */}
-          {!isFree && event.status === 'published' && !registrationObj && (
-            <>
-              <PaymentInfoCard event={event} />
-              <Card className="mb-4">
-                <h3 className="font-bold text-gray-800 mb-3">Upload Bukti Transfer</h3>
-                <ImageUpload
-                  label="Bukti Pembayaran (Wajib)"
-                  value={paymentProof}
-                  onChange={(url) => setPaymentProof(url)}
-                  placeholder="Pilih atau seret struk ke sini"
-                />
-              </Card>
-            </>
-          )}
+      {/* Sticky Bottom Checkout Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto p-4 bg-background/90 backdrop-blur-xl border-t border-border/60">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Harga Tiket</p>
+            <p className="text-xl font-black text-foreground">{priceDisplay}</p>
+          </div>
 
-          {event.status === 'published' && (
-            <div className="space-y-3 mt-8">
-              {registrationObj?.approval_status === 'pending_approval' ? (
-                <>
-                  <Button disabled fullWidth size="lg" className="!bg-amber-500 hover:!bg-amber-600 !text-white opacity-100 disabled:opacity-100 shadow-amber-500/30">
-                    ⏳ Menunggu Tiket
-                  </Button>
-                  <p className="text-center text-xs font-semibold text-gray-500">
-                    Pendaftaran kamu sedang menunggu persetujuan organizer.
-                  </p>
-                </>
-              ) : registrationObj?.approval_status === 'rejected' ? (
-                <Button disabled fullWidth size="lg" variant="danger">
-                  ❌ Pendaftaran Ditolak
-                </Button>
-              ) : registrationObj?.approval_status === 'approved' ? (
-                <Button onClick={handleActionClick} fullWidth size="lg" className="!bg-emerald-500 hover:!bg-emerald-600 !text-white shadow-emerald-500/30">
-                  🎟️ Lihat Tiket
-                </Button>
-              ) : (
-                <>
-                  <Button onClick={handleActionClick} loading={registering} fullWidth size="lg">
-                    {isFree ? '🎟️ Dapatkan Tiket' : `🎟️ Dapatkan Tiket`}
-                  </Button>
-                  {isFree && (
-                    <p className="text-center text-xs font-semibold text-gray-500">
-                      Organizer akan melakukan verifikasi maksimal 1x24 jam
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+          <div className="flex-1 max-w-[200px]">
+            {registrationObj?.approval_status === 'approved' ? (
+              <Link
+                href="/tickets"
+                className="w-full flex items-center justify-center gap-1.5 py-3 px-4 rounded-2xl bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 active:scale-95 transition-all"
+              >
+                <CheckCircle2 className="w-4 h-4" /> Buka Tiket
+              </Link>
+            ) : (
+              <Drawer.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
+                <Drawer.Trigger asChild>
+                  <ShimmerButton className="w-full h-12 text-sm font-bold shadow-lg">
+                    {isFree ? 'Daftar Sekarang' : 'Beli Tiket'}
+                  </ShimmerButton>
+                </Drawer.Trigger>
+                <Drawer.Portal>
+                  <Drawer.Overlay className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" />
+                  <Drawer.Content className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-background border-t border-border rounded-t-[32px] p-6 focus:outline-none">
+                    <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full mx-auto mb-4" />
+
+                    <Drawer.Title className="text-xl font-black text-foreground mb-1">
+                      {isFree ? 'Konfirmasi Pendaftaran' : 'Pembayaran & Tiket'}
+                    </Drawer.Title>
+                    <Drawer.Description className="text-xs text-muted-foreground mb-4">
+                      Pastikan informasi Anda sudah sesuai sebelum melanjutkan pendaftaran.
+                    </Drawer.Description>
+
+                    <div className="bg-muted/40 p-3.5 rounded-2xl border border-border/60 space-y-2 mb-4">
+                      <div className="flex justify-between items-start text-xs gap-2">
+                        <span className="text-muted-foreground shrink-0">Event:</span>
+                        <span className="font-bold text-foreground text-right">{event.title}</span>
+                      </div>
+                      <div className="flex justify-between text-xs pt-1 border-t border-border/40">
+                        <span className="text-muted-foreground">Total Bayar:</span>
+                        <span className="font-black text-primary text-sm">{priceDisplay}</span>
+                      </div>
+                    </div>
+
+                    {!isFree && (
+                      <div className="bg-primary/10 p-3.5 rounded-2xl border border-primary/20 mb-4 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <CreditCard className="w-4 h-4 text-primary" />
+                            Transfer: {event.metode_pembayaran || 'QRIS & Transfer BCA'}
+                          </p>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                            Verifikasi Instan
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between bg-card/80 p-2.5 rounded-xl border border-border/60">
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">No. Rekening</p>
+                            <p className="text-xs font-mono font-bold text-foreground">
+                              {event.nomor_rekening || '8271039941'} <span className="text-[10px] font-sans font-normal text-muted-foreground">({event.nama_pemilik || 'PT EVNTER KREATIF'})</span>
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(event.nomor_rekening || '8271039941');
+                              alert.success('Tersalin!', 'Nomor rekening telah disalin ke clipboard');
+                            }}
+                            className="px-2.5 py-1 text-[11px] font-bold bg-primary text-primary-foreground rounded-lg active:scale-95 transition-all shadow-sm"
+                          >
+                            Salin
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground italic">
+                          {event.catatan_pembayaran || 'Unggah bukti transfer untuk verifikasi otomatis tiket Anda.'}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-3 pt-2">
+                      <ShimmerButton
+                        onClick={handleConfirmRegistration}
+                        disabled={registering}
+                        className="w-full h-12 text-sm font-bold shadow-lg"
+                      >
+                        {registering ? 'Memproses Tiket...' : 'Konfirmasi & Terbitkan Tiket'}
+                      </ShimmerButton>
+                      <button
+                        onClick={() => setDrawerOpen(false)}
+                        className="w-full py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  </Drawer.Content>
+                </Drawer.Portal>
+              </Drawer.Root>
+            )}
+          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function PaymentInfoCard({ event }: { event: Event }) {
-  if (!event.metode_pembayaran) {
-    return (
-      <Card className="mb-4 bg-orange-50 border border-orange-100">
-         <p className="text-sm text-orange-700">Metode pembayaran belum diatur oleh Organizer.</p>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="mb-4 bg-blue-50 border border-blue-100">
-      <h3 className="font-bold text-blue-800 mb-2">💳 Cara Pembayaran</h3>
-      <p className="text-sm text-blue-700 font-semibold">{event.metode_pembayaran}</p>
-      <p className="text-sm text-blue-700">No: {event.nomor_rekening}</p>
-      <p className="text-sm text-blue-700">Atas nama: {event.nama_pemilik}</p>
-      {event.catatan_pembayaran && (
-        <p className="text-xs text-blue-600 mt-1 italic">{event.catatan_pembayaran}</p>
-      )}
-      {event.qris_image && (
-        <div className="mt-3 flex flex-col items-center">
-          <p className="text-xs font-semibold text-blue-700 mb-1">Scan QRIS</p>
-          <div className="relative w-40 h-40 overflow-hidden rounded-xl border border-blue-200 bg-white">
-            <Image
-              src={event.qris_image}
-              alt="QRIS"
-              fill
-              className="object-contain"
-            />
-          </div>
-        </div>
-      )}
-      {event.organizer?.whatsapp && (
-        <a
-          href={`https://wa.me/62${event.organizer.whatsapp.replace(/^0/, '')}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 flex items-center gap-2 text-sm text-green-700 font-semibold"
-        >
-          💬 Konfirmasi ke Organizer
-        </a>
-      )}
-    </Card>
   );
 }

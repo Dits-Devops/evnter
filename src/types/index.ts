@@ -25,6 +25,7 @@ export interface Event {
   description: string;
   date: string;
   location: string;
+  category?: string;
   price?: number;
   poster_url?: string;
   organizer_id: string;
@@ -98,6 +99,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   pro_status: ProStatus;
+  is_pro?: boolean;
   whatsapp: string;
   profile_image?: string;
   updated_at?: string;

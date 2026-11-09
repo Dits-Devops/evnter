@@ -17,9 +17,9 @@ interface SelectProps {
 
 export default function Select({ label, name, value, onChange, options, required, error }: SelectProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={name} className="text-sm font-semibold text-gray-700">
-        {label} {required && <span className="text-red-500">*</span>}
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={name} className="text-xs font-bold text-foreground">
+        {label} {required && <span className="text-rose-500">*</span>}
       </label>
       <select
         id={name}
@@ -27,19 +27,19 @@ export default function Select({ label, name, value, onChange, options, required
         value={value}
         onChange={onChange}
         required={required}
-        className={`w-full px-4 py-3 rounded-2xl border bg-white text-gray-800 text-base min-h-[48px] ${
+        className={`w-full px-4 py-3 rounded-2xl border bg-muted/40 text-foreground text-sm font-medium min-h-[48px] focus:outline-none transition-all ${
           error
-            ? 'border-red-400'
-            : 'border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300'
+            ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+            : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
         }`}
       >
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+          <option key={opt.value} value={opt.value} className="bg-card text-foreground">
             {opt.label}
           </option>
         ))}
       </select>
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && <p className="text-rose-500 text-xs mt-1 font-semibold">{error}</p>}
     </div>
   );
 }

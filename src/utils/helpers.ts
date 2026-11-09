@@ -60,10 +60,14 @@ export function createWhatsAppUpgradeMessage(userName: string, userEmail: string
 export function getProfileImageUrl(user?: { profile_image?: string | null, updated_at?: string | null } | null): string | null {
   if (!user || !user.profile_image) return null;
   
-  // Use updated_at as timestamp, fallback to a 10s window stable timestamp if missing
+  if (user.profile_image.includes('unsplash.com')) {
+    return user.profile_image;
+  }
+  
+  const separator = user.profile_image.includes('?') ? '&' : '?';
   const timestamp = user.updated_at 
     ? new Date(user.updated_at).getTime() 
     : Math.floor(Date.now() / 10000) * 10000;
     
-  return `${user.profile_image}?t=${timestamp}`;
+  return `${user.profile_image}${separator}t=${timestamp}`;
 }
